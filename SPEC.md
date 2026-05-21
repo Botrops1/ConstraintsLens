@@ -489,17 +489,17 @@ Doc 1 mentions `isLightBulbOn` for highlighting. That property controls browser-
 
 ## 10. Open questions
 
-Maximum five, each with a proposed validation approach. These cannot be resolved without running code inside Fusion.
+**All five questions resolved by PC test sessions 1–2 (spike probe output received 2026-05-21).**
 
-1. **Exact panel id for the Sketch toolbar button.** Doc 2 mentions placement under the "Inspect" panel of the Solid workspace, but the canonical id (e.g. `SolidScriptsAddinsPanel` vs `SketchInspectPanel`) needs verification. **Validation:** in the Text Commands window, run `Commands.GetItemList` and grep for sketch panels; pick the one that shows when in sketch edit mode.
+1. ~~**Exact panel id for the Sketch toolbar button.**~~ **RESOLVED (PC test session 2).** `SolidScriptsAddinsPanel` ('Add-ins', always visible) is confirmed working. `SketchConstraintsPanel` ('CONSTRAINTS', visible during sketch edit) also appears in the panel list and is a better home for v1 discoverability — relocating the button there is a v1 polish item, not an MVP blocker.
 
-2. **Whether `executeTextCommand("Sketch.ShowUnderconstrained")` requires an active sketch edit context.** Doc 2 cites `bachi.net` for the text-command output but does not confirm the precondition. **Validation:** call the command via `app.executeTextCommand` outside sketch edit; observe whether it returns the count text, an error string, or raises. Wrap accordingly.
+2. ~~**Whether `executeTextCommand("Sketch.ShowUnderconstrained")` requires an active sketch edit context.**~~ **RESOLVED (PC test session 2).** Confirmed requires sketch edit context. Returns `'Under constrained points: N, under constrained curves: N'` as a plain string. The deferred underconstrained button should be enabled only when `design.activeEditObject` is a `Sketch`, and should surface the raw string in a banner without attempting to parse it.
 
-3. **Refresh strategy when `palette.isVisible == False`.** UP-38529 (M-8) suggests skipping pushes when not visible — but does the palette emit a `shown` event we can hook to push a delayed refresh? **Validation:** trace `palette.*` event firing during minimize/restore and document the cycle.
+3. ~~**Refresh strategy when `palette.isVisible == False`.**~~ **RESOLVED (PC test session 2).** Palette event surface is `['closed', 'incomingFromHTML', 'navigatingURL']` — no `shown` or `opened` event exists. Push-on-restore is not possible via an event hook. Current strategy stands: gate every `sendInfoToHTML` call on `palette.isVisible == True` (M-8 guard); the next `commandTerminated` event after the palette is restored will trigger a fresh scan automatically.
 
 4. ~~**Stability of `entityToken` for `GeometricConstraint` objects across save-reload.**~~ **RESOLVED — PASS (PC test session 2).** `Design.findEntityByToken` returned a non-empty `BaseVector` after save-close-reopen of the document. Token-based row keys in `messaging.py` are correct; no positional fallback is needed.
 
-5. **Whether `VerticalConstraint` is actually surfaced by the API or only created implicitly.** Neither research doc explicitly lists it as a `GeometricConstraint` subclass — but `GeometricConstraints.addVertical(line)` is documented. **Validation:** the fixture sketch (section 8) creates one via `addVertical`; the spike script then iterates `sketch.geometricConstraints` and prints each `objectType` — confirm `"adsk::fusion::VerticalConstraint"` appears. If not, update the dispatch table to mark it as "creation-only, never enumerated."
+5. ~~**Whether `VerticalConstraint` is actually surfaced by the API or only created implicitly.**~~ **RESOLVED — PASS (PC test session 2).** `adsk::fusion::VerticalConstraint` appeared at row [1] in the spike probe's `geometricConstraints` enumeration of `ConstraintLens_Fixture`. The dispatch table entry is correct; no change needed.
 
 ---
 
@@ -521,7 +521,7 @@ The three forks the spec previously deferred to the project owner have been reso
    - App Store submission is explicitly out of MVP scope; revisit only after the deferred v1 features in section 2 land.
 
 3. **Workspace coverage — Solid sketches only.**
-   The toolbar button is registered in the Solid workspace only (panel id to be confirmed per open question 1). Implementation rules:
+   The toolbar button is registered in `SolidScriptsAddinsPanel` ('Add-ins', always visible). A v1 polish item is to also register in `SketchConstraintsPanel` for in-sketch discoverability. Implementation rules:
    - `lifecycle.py` registers exactly one command-button placement; do not loop over workspaces.
    - The scanner is intentionally workspace-agnostic (it operates on the `Sketch` passed in), so future workspaces are an additive change to `lifecycle.py` only.
    - Sheet Metal / Form / Surface / Drawing support is a v1 polish item; do not write feature flags for it in MVP.
