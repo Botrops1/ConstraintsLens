@@ -2,10 +2,10 @@
 
 ## Current Status
 
-**Working on:** Packaging GitHub Release for v0.1.5.
-**Version:** 0.1.5 on branch `claude/fusion-constraintlens-spec-94gPu`.
-**Next step:** Publish GitHub Release — zip `ConstraintLens/` folder, draft release notes, tag `v0.1.5`.
-**Blocked by:** Nothing — all 5 PC test sessions complete, all known bugs fixed.
+**Working on:** v1 polish backlog.
+**Version:** 0.1.5 released — GitHub Release published with `ConstraintLens-v0.1.5.zip`.
+**Next step:** Pick next backlog item (see v1 Polish Backlog below).
+**Blocked by:** Nothing.
 
 ### What's verified working (PC tests 1–5, all passed)
 - Add-in loads, palette docks, populates without Refresh click.
