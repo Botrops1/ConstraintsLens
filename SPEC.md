@@ -503,15 +503,25 @@ Maximum five, each with a proposed validation approach. These cannot be resolved
 
 ---
 
-# Three questions for the developer to answer before implementation starts
+# Confirmed decisions (locked)
 
-These are decisions only the project owner can make; each would meaningfully change the spec.
+The three forks the spec previously deferred to the project owner have been resolved.
 
-1. **Target Fusion version & Python: latest only, or compat with older installs?**
-   The January 2026 Fusion bumps Python from 3.12 to 3.14 and standardizes on the Qt Web Browser palette backend. If MVP targets the January 2026 build only, `Palettes.add(..., useQtWebBrowser=True)` is unconditional and we can use 3.12+ typing syntax (`list[...]`, `X | None`). If we need to support 2024-era installs, we must keep `from __future__ import annotations`, use `Optional[X]`, and gate `useQtWebBrowser` behind a version check. **Default if unanswered: latest only.**
+1. **Target Fusion version & Python — latest only.**
+   ConstraintLens targets the January 2026 Fusion build and later, running on Python 3.14. Implementation rules that follow from this:
+   - `Palettes.add(..., useQtWebBrowser=True)` is called unconditionally; no CEF fallback path is written.
+   - Type annotations use 3.12+ syntax: `list[X]`, `dict[K, V]`, `X | None`. **Do not** add `from __future__ import annotations` or import `Optional`/`List` from `typing`.
+   - `match` statements are permitted in `dispatch.py` if they read cleaner than the descriptor table; the descriptor table remains the source of truth either way.
 
-2. **Distribution intent: Autodesk App Store, or GitHub Releases only?**
-   App Store submission requires a signed installer (.msi for Windows, .pkg for macOS), screenshots, help URL, and a manual review (weeks of latency). GitHub Releases is a zip with an install snippet — fastest path, broadest dev freedom, no review. If App Store is the goal, we need to add `installer/` and `store_assets/` directories to the structure (section 3) and budget the 80–150-hour v1 effort accordingly. **Default if unanswered: GitHub Releases for MVP, App Store as a v1+ milestone.**
+2. **Distribution — GitHub Releases only for MVP.**
+   The deliverable is a zipped `ConstraintLens/` add-in folder published as a GitHub Release, plus a README install snippet pointing at `~/Autodesk/Autodesk Fusion 360/API/AddIns/`. Implementation rules:
+   - No `installer/`, `store_assets/`, or signing directories in the repo.
+   - No App Store metadata, help-URL pages, or screenshot kit.
+   - The README install snippet must cover both Windows and macOS path conventions.
+   - App Store submission is explicitly out of MVP scope; revisit only after the deferred v1 features in section 2 land.
 
-3. **Workspace coverage: Solid-workspace sketches only for MVP, or include Sheet Metal / Form / Surface / Drawing sketches?**
-   All workspaces use the same `Sketch` class so the *scanner* code does not change, but the toolbar button placement does — each workspace needs its own command registration. Including all four workspaces adds maybe 30 lines of `lifecycle.py` plus per-workspace QA. **Default if unanswered: Solid only for MVP; document the others as a v1 polish item.**
+3. **Workspace coverage — Solid sketches only.**
+   The toolbar button is registered in the Solid workspace only (panel id to be confirmed per open question 1). Implementation rules:
+   - `lifecycle.py` registers exactly one command-button placement; do not loop over workspaces.
+   - The scanner is intentionally workspace-agnostic (it operates on the `Sketch` passed in), so future workspaces are an additive change to `lifecycle.py` only.
+   - Sheet Metal / Form / Surface / Drawing support is a v1 polish item; do not write feature flags for it in MVP.
