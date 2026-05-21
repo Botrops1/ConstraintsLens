@@ -497,7 +497,7 @@ Maximum five, each with a proposed validation approach. These cannot be resolved
 
 3. **Refresh strategy when `palette.isVisible == False`.** UP-38529 (M-8) suggests skipping pushes when not visible — but does the palette emit a `shown` event we can hook to push a delayed refresh? **Validation:** trace `palette.*` event firing during minimize/restore and document the cycle.
 
-4. **Stability of `entityToken` for `GeometricConstraint` objects across save-reload.** Doc 1 implies general stability via `Design.findEntityByToken`; doc 2 does not confirm this specifically for constraints. **Validation:** capture a constraint's token, save and reload the document, attempt `findEntityByToken(token)`; if it returns null, fall back to rowKey-by-position (less robust — would change `messaging.py` schema).
+4. ~~**Stability of `entityToken` for `GeometricConstraint` objects across save-reload.**~~ **RESOLVED — PASS (PC test session 2).** `Design.findEntityByToken` returned a non-empty `BaseVector` after save-close-reopen of the document. Token-based row keys in `messaging.py` are correct; no positional fallback is needed.
 
 5. **Whether `VerticalConstraint` is actually surfaced by the API or only created implicitly.** Neither research doc explicitly lists it as a `GeometricConstraint` subclass — but `GeometricConstraints.addVertical(line)` is documented. **Validation:** the fixture sketch (section 8) creates one via `addVertical`; the spike script then iterates `sketch.geometricConstraints` and prints each `objectType` — confirm `"adsk::fusion::VerticalConstraint"` appears. If not, update the dispatch table to mark it as "creation-only, never enumerated."
 
