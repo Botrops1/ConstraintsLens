@@ -5,8 +5,8 @@
 # implement landmines M-1 (MidPoint .point), M-2 (pattern stubs), and
 # the universal "accessor raised" fallback.
 
+from collections.abc import Callable
 from dataclasses import dataclass, field
-from typing import Callable
 
 from .labels import EntityLabeler
 
@@ -68,7 +68,7 @@ def _line_on_surface(c, lab, kind_label: str) -> ScanResult:
         errors.append("accessor unavailable: .line")
     if surface is None:
         errors.append("accessor unavailable: .planarSurface")
-    l = lab.label_for(line) if line else "<error>"
+    line_label = lab.label_for(line) if line else "<error>"
     chips = _chips(lab, line)
     if surface is not None:
         # External-surface fallback per SPEC.md table row 9.
@@ -78,7 +78,7 @@ def _line_on_surface(c, lab, kind_label: str) -> ScanResult:
         except Exception:
             surface_label = "external surface"
         chips.append({"token": "", "kind": "BRepFace", "label": surface_label})
-    return ScanResult(f"{kind_label} — {l}", chips, errors)
+    return ScanResult(f"{kind_label} — {line_label}", chips, errors)
 
 
 # --- Builders, in dispatch-table order ----------------------------------

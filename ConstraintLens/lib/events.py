@@ -61,6 +61,19 @@ class _PaletteClosedHandler(adsk.core.UserInterfaceGeneralEventHandler):
             pass
 
 
+def pin(event, handler: adsk.core.EventHandler) -> None:
+    """Pin a handler to a Fusion event and keep its Python ref alive.
+
+    Use this from any module that creates its own event handlers (e.g.
+    CommandCreated). Without pinning, Python GC can drop the handler ref
+    while the C++ side still holds a pointer — Fusion crashes silently
+    on the next callback (landmine M-7).
+    """
+    event.add(handler)
+    _handlers.append(handler)
+    _subscriptions.append((event, handler))
+
+
 def register_app(app: adsk.core.Application, ui: adsk.core.UserInterface, on_change) -> None:
     h1 = _DocumentActivatedHandler(on_change)
     app.documentActivated.add(h1)

@@ -44,9 +44,6 @@ def start(addin_dir: str) -> None:
 
 
 def stop() -> None:
-    app = adsk.core.Application.get()
-    ui = app.userInterface
-
     events.unregister_all()
 
     global _palette, _button_control, _command_definition
@@ -88,10 +85,7 @@ def _ensure_command(app: adsk.core.Application, ui: adsk.core.UserInterface) -> 
     )
     _command_definition = cmd_def
 
-    on_created = _CommandCreatedHandler()
-    cmd_def.commandCreated.add(on_created)
-    events._handlers.append(on_created)  # pin against GC
-    events._subscriptions.append((cmd_def.commandCreated, on_created))
+    events.pin(cmd_def.commandCreated, _CommandCreatedHandler())
 
 
 def _ensure_button(ui: adsk.core.UserInterface) -> None:
@@ -112,8 +106,12 @@ def _ensure_button(ui: adsk.core.UserInterface) -> None:
     if existing is not None:
         existing.deleteMe()
     _button_control = panel.controls.addCommand(_command_definition)
-    _button_control.isPromotedByDefault = True
-    _button_control.isPromoted = True
+    try:
+        _button_control.isPromotedByDefault = True
+        _button_control.isPromoted = True
+    except Exception:
+        # Some panels disallow promotion; the button still appears in the overflow menu.
+        pass
 
 
 class _CommandCreatedHandler(adsk.core.CommandCreatedEventHandler):
@@ -166,7 +164,11 @@ def _show_palette() -> None:
         600,     # height
         True,    # useNewWebBrowser (Qt — required per locked decision)
     )
-    _palette.dockingState = adsk.core.PaletteDockingStates.PaletteDockStateRight
+    try:
+        _palette.dockingState = adsk.core.PaletteDockingStates.PaletteDockStateRight
+    except Exception:
+        # Some Fusion builds make this read-only on initial creation; ignore.
+        pass
 
     events.register_palette(_palette, _on_palette_message, _on_palette_closed)
     _publish_active(app)
