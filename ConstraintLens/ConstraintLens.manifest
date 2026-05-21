@@ -1,0 +1,13 @@
+{
+    "autodeskProduct": "Fusion360",
+    "type": "addin",
+    "id": "8a3f4d5e-1c2b-4f6a-9e0d-7b5c8a2d1e3f",
+    "author": "ConstraintLens contributors",
+    "description": {
+        "": "Docked panel listing every sketch constraint in the active sketch — click to select, delete, and diagnose."
+    },
+    "version": "0.1.0",
+    "runOnStartup": false,
+    "supportedOS": "windows|mac",
+    "editEnabled": true
+}

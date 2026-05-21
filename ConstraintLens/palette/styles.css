@@ -1,0 +1,212 @@
+/* ConstraintLens palette — matches Fusion's dark theme. */
+
+:root {
+    --bg: #2a2a2a;
+    --bg-elev: #333333;
+    --bg-row: #2f2f2f;
+    --bg-row-hover: #3a3a3a;
+    --fg: #e8e8e8;
+    --fg-muted: #9c9c9c;
+    --accent: #4aa3df;
+    --warn: #d49b3b;
+    --error: #d96959;
+    --ok: #5fb96b;
+    --border: #404040;
+    --chip-bg: #3d3d3d;
+    --chip-border: #525252;
+}
+
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+html, body {
+    height: 100%;
+    background: var(--bg);
+    color: var(--fg);
+    font-family: "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+    font-size: 12px;
+    overflow: hidden;
+}
+
+body {
+    display: flex;
+    flex-direction: column;
+}
+
+.toolbar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 10px;
+    background: var(--bg-elev);
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+}
+
+.status {
+    flex: 1;
+    font-size: 11px;
+    color: var(--fg-muted);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.status.warn { color: var(--warn); }
+.status.error { color: var(--error); }
+.status.ok { color: var(--ok); }
+
+.btn {
+    background: var(--bg-row);
+    color: var(--fg);
+    border: 1px solid var(--border);
+    padding: 3px 9px;
+    font-size: 11px;
+    cursor: pointer;
+    border-radius: 2px;
+}
+.btn:hover { background: var(--bg-row-hover); }
+.btn:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+}
+.btn.danger { color: var(--error); }
+.btn.danger:hover { background: #4a2c2c; }
+
+main {
+    flex: 1;
+    overflow-y: auto;
+}
+
+.section-header {
+    padding: 6px 10px;
+    background: var(--bg-elev);
+    color: var(--fg-muted);
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    border-bottom: 1px solid var(--border);
+    border-top: 1px solid var(--border);
+    position: sticky;
+    top: 0;
+    z-index: 1;
+}
+
+.row {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    padding: 8px 10px;
+    background: var(--bg-row);
+    border-bottom: 1px solid var(--border);
+    cursor: pointer;
+}
+.row:hover { background: var(--bg-row-hover); }
+.row.pseudo { opacity: 0.85; }
+.row.has-errors { border-left: 3px solid var(--warn); }
+
+.row-glyph {
+    width: 18px;
+    height: 18px;
+    flex-shrink: 0;
+    color: var(--fg-muted);
+    font-size: 14px;
+    text-align: center;
+    line-height: 18px;
+}
+
+.row-body {
+    flex: 1;
+    min-width: 0;
+}
+
+.row-label {
+    font-size: 12px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.row-meta {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 4px;
+    flex-wrap: wrap;
+}
+
+.kind {
+    font-size: 10px;
+    color: var(--fg-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+}
+
+.badge {
+    font-size: 9px;
+    padding: 1px 5px;
+    border-radius: 8px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+.badge.implicit { background: #4a3a1c; color: #e0b870; }
+.badge.error { background: #4a2c2c; color: var(--error); }
+
+.chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    margin-top: 4px;
+}
+
+.chip {
+    font-size: 10px;
+    padding: 1px 6px;
+    background: var(--chip-bg);
+    border: 1px solid var(--chip-border);
+    border-radius: 9px;
+    color: var(--fg);
+}
+
+.row-actions {
+    display: flex;
+    gap: 4px;
+    flex-shrink: 0;
+}
+
+.row-actions .btn { padding: 2px 7px; font-size: 10px; }
+
+.errors {
+    margin-top: 4px;
+    font-size: 10px;
+    color: var(--error);
+}
+
+.empty {
+    padding: 24px;
+    text-align: center;
+    color: var(--fg-muted);
+    font-size: 11px;
+    line-height: 1.5;
+}
+
+.toast {
+    position: fixed;
+    bottom: 12px;
+    left: 12px;
+    right: 12px;
+    padding: 8px 12px;
+    background: var(--bg-elev);
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    font-size: 11px;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s;
+}
+.toast.show { opacity: 1; }
+.toast.ok { border-color: var(--ok); }
+.toast.error { border-color: var(--error); }
