@@ -99,7 +99,7 @@ def _scan_dimensions(sketch: adsk.fusion.Sketch, lab: EntityLabeler) -> list[dic
     for i in range(dims.count):
         d = dims.item(i)
         try:
-            result = dispatch.describe_dimension(d, lab)
+            result = dispatch.describe_dimension(d, lab, sketch)
         except Exception as exc:
             result = dispatch.ScanResult("Dimension (builder raised)", [], [f"builder raised: {exc}"])
         tok = token_of(d) or ""

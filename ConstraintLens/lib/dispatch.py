@@ -200,31 +200,46 @@ def _b_symmetry(c, lab):
     )
 
 
+def _iter_curves_into_chips(coll, lab, chips: list[dict]) -> int:
+    """Iterate a curve collection (SketchCurveVector or ObjectCollection),
+    append a chip for each item, return the count appended.
+    Tolerates both iteration patterns: direct `for x in coll` (vectors) and
+    `.count` + `.item(i)` (ObjectCollection)."""
+    if coll is None:
+        return 0
+    n = 0
+    try:
+        for curve in coll:
+            chips.append(lab.chip_for(curve))
+            n += 1
+        return n
+    except TypeError:
+        pass
+    except Exception:
+        return n
+    try:
+        for i in range(coll.count):
+            chips.append(lab.chip_for(coll.item(i)))
+            n += 1
+    except Exception:
+        pass
+    return n
+
+
 def _b_offset(c, lab):
     parent = _safe(lambda: c.parentCurves)
     child = _safe(lambda: c.childCurves)
     distance = _safe(lambda: c.distance)
-    # parentCurves / childCurves return SketchCurveVector, not ObjectCollection.
-    # SketchCurveVector supports len() and iteration but not .count.
-    try:
-        n = len(parent) if parent is not None else 0
-    except Exception:
-        n = 0
-    try:
-        m = len(child) if child is not None else 0
-    except Exception:
-        m = 0
+    chips: list[dict] = []
+    n = _iter_curves_into_chips(parent, lab, chips)
+    m = _iter_curves_into_chips(child, lab, chips)
     expr = "?"
     try:
         if distance is not None:
             expr = distance.expression
     except Exception:
         expr = "?"
-    return ScanResult(
-        f"Offset {n}→{m} curves @ {expr}",
-        [],  # Collections, not single entities — counts surface in label.
-        [],
-    )
+    return ScanResult(f"Offset {n}→{m} curves @ {expr}", chips, [])
 
 
 def _b_polygon(c, lab):
@@ -347,30 +362,60 @@ _DIMENSION_KINDS: dict[str, str] = {
 }
 
 
-def describe_dimension(dim, lab: EntityLabeler) -> ScanResult:
+def _find_offset_constraint_for_dim(dim, sketch):
+    """Match a SketchOffsetCurvesDimension to its source OffsetConstraint by
+    comparing the dimension's parameter entityToken with each OffsetConstraint's
+    distance.parameter entityToken. Returns None if no match found."""
+    if sketch is None:
+        return None
+    dim_param = _safe(lambda: dim.parameter)
+    if dim_param is None:
+        return None
+    dim_tok = _safe(lambda: dim_param.entityToken)
+    if not dim_tok:
+        return None
+    try:
+        gc = sketch.geometricConstraints
+        for i in range(gc.count):
+            c = gc.item(i)
+            if getattr(c, "objectType", "") != "adsk::fusion::OffsetConstraint":
+                continue
+            distance = _safe(lambda c=c: c.distance)
+            if distance is None:
+                continue
+            # OffsetConstraint.distance is a ModelParameter; compare tokens.
+            d_tok = _safe(lambda d=distance: d.entityToken)
+            if d_tok and d_tok == dim_tok:
+                return c
+    except Exception:
+        pass
+    return None
+
+
+def describe_dimension(dim, lab: EntityLabeler, sketch=None) -> ScanResult:
     obj_type = getattr(dim, "objectType", "")
     kind_label = _DIMENSION_KINDS.get(obj_type, obj_type.split("::")[-1] or "Dimension")
 
-    # SketchOffsetCurvesDimension uses .curves (SketchCurveVector), not .entityOne/.entityTwo.
+    # SketchOffsetCurvesDimension does not expose its source curves directly
+    # in any reliable accessor on the dimension itself — try common attribute
+    # names first, then fall back to finding the matching OffsetConstraint
+    # by parameter and reading its parentCurves / childCurves.
     if obj_type == "adsk::fusion::SketchOffsetCurvesDimension":
-        curves = _safe(lambda: dim.curves)
+        chips: list[dict] = []
+        n = 0
+        for attr in ("curves", "parentCurves", "childCurves"):
+            coll = _safe(lambda a=attr: getattr(dim, a, None))
+            n += _iter_curves_into_chips(coll, lab, chips)
+        if not chips:
+            ofc = _find_offset_constraint_for_dim(dim, sketch)
+            if ofc is not None:
+                n += _iter_curves_into_chips(_safe(lambda: ofc.parentCurves), lab, chips)
+                n += _iter_curves_into_chips(_safe(lambda: ofc.childCurves), lab, chips)
         expr = "?"
         try:
             expr = dim.parameter.expression
         except Exception:
             pass
-        chips: list[dict] = []
-        n = 0
-        if curves is not None:
-            try:
-                for curve in curves:
-                    chips.append(lab.chip_for(curve))
-                    n += 1
-            except Exception:
-                try:
-                    n = len(curves)
-                except Exception:
-                    pass
         return ScanResult(f"{kind_label} ({n} curves) = {expr}", chips, [])
 
     e1 = _safe(lambda: dim.entityOne)

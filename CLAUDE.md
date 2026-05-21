@@ -2,25 +2,28 @@
 
 ## Current Status
 
-**Working on:** Awaiting PC test session 3 to verify 0.1.3 fixes.
-**Version:** 0.1.3 on branch `claude/fusion-constraintlens-spec-94gPu`.
-**Next step:** PC test session 3 — pull 0.1.3, re-run steps 3 & 4 of `PC_VALIDATION.md`. Check: (1) tangent spline+line row highlights both objects, (2) SketchOffsetCurvesDimension row highlights curves, (3) implicit join rows show ⊘ with tooltip. If all pass → package for GitHub Release.
-**Blocked by:** PC test session 3 (user needs to be at the Fusion PC).
+**Working on:** Awaiting PC test session 4 to verify 0.1.4 fixes.
+**Version:** 0.1.4 on branch `claude/fusion-constraintlens-spec-94gPu`.
+**Next step:** PC test 4 — pull 0.1.4, check: (1) `OffsetConstraint` row now lists curve names as chips, (2) `SketchOffsetCurvesDimension` row highlights its curves on click. If clean → package for GitHub Release.
+**Blocked by:** PC test session 4 (user needs to be at the Fusion PC).
 
-### What's verified working (PC tests 1 & 2)
+### What's verified working (PC tests 1, 2, 3)
 - Add-in loads, palette docks, populates without Refresh click.
 - Geometric constraints list with click-to-select, ⌖ select-constraint, × delete + auto-refresh.
 - Dimensions list (Angular, Linear, Diameter, etc.) with parameter expression.
-- Implicit endpoint joins as pseudo-rows with implicit badge.
+- Implicit endpoint joins as pseudo-rows with implicit badge AND ⊘ lock icon + tooltip (0.1.3).
+- Tangent spline+line row highlights both objects on click (0.1.3 — token-based selection).
 - Sketch status banner (name, component, fully/under-constrained).
 - M-1 defensive guard (MidPoint accessor) — both rows render; no crash.
 - OffsetConstraint ACCESSOR error fixed in 0.1.2.
 - Auto-load fixed in 0.1.2 (palette populated without Refresh click).
 
-### What changed in 0.1.3 (needs PC test 3 verification)
-- **Spline+line selection** — entity tokens sent from JS; Python resolves via `findEntityByToken`.
-- **SketchOffsetCurvesDimension highlight** — `dispatch.py` iterates `.curves` collection; chips carry tokens.
-- **Implicit join lock UX** — disabled `×` replaced with `⊘` + tooltip explaining why.
+### What changed in 0.1.4 (needs PC test 4 verification)
+- **OffsetConstraint row chips** — `_b_offset` now iterates `parentCurves` + `childCurves` via shared `_iter_curves_into_chips` helper and emits a chip per curve (was `[]`).
+- **SketchOffsetCurvesDimension selection** — `describe_dimension` now tries `.curves`/`.parentCurves`/`.childCurves` directly, then falls back to finding the matching OffsetConstraint via parameter `entityToken` equality and pulling its curves. `scanner._scan_dimensions` now passes `sketch` into `describe_dimension`.
+
+### Known sub-issues to keep on radar
+- Offset-of-spline creates internal control geometry that Fusion doesn't render. User reports a tangent constraint on a line that isn't visible on the canvas. The row still appears in ConstraintLens but the line can't be selected by the user. See backlog item below.
 
 ---
 
@@ -100,3 +103,5 @@ tests/
 4. Constraint icons matching Fusion's own glyph set.
 5. Bulk delete with confirmation.
 6. Inline editable dimension expression.
+7. **Sketch-→-palette reverse lookup** — user picks an entity on the canvas, ConstraintLens scrolls to / highlights every row that references it. Lets the user start from the geometry rather than the list.
+8. **Mark invisible / unselectable entities** — Fusion creates internal control geometry for some operations (e.g. spline offsets create a hidden line that participates in a tangent constraint but isn't drawn on the canvas). Detect via `entity.isVisible` (or class-based heuristic) and badge the row / chip so users know the row references geometry they can't click.
