@@ -363,32 +363,69 @@ _DIMENSION_KINDS: dict[str, str] = {
 
 
 def _find_offset_constraint_for_dim(dim, sketch):
-    """Match a SketchOffsetCurvesDimension to its source OffsetConstraint by
-    comparing the dimension's parameter entityToken with each OffsetConstraint's
-    distance.parameter entityToken. Returns None if no match found."""
+    """Match a SketchOffsetCurvesDimension to its source OffsetConstraint.
+    OffsetConstraint.distance is unreliable in the January 2026 build (often
+    returns None), so this stacks fallbacks: parameter entityToken, parameter
+    name, positional pairing of offset-dims vs offset-constraints, and finally
+    "just use the only one if there is only one"."""
     if sketch is None:
         return None
-    dim_param = _safe(lambda: dim.parameter)
-    if dim_param is None:
-        return None
-    dim_tok = _safe(lambda: dim_param.entityToken)
-    if not dim_tok:
-        return None
+
+    # Collect all OffsetConstraints up front — every fallback needs them.
+    offset_constraints: list = []
     try:
         gc = sketch.geometricConstraints
         for i in range(gc.count):
             c = gc.item(i)
-            if getattr(c, "objectType", "") != "adsk::fusion::OffsetConstraint":
-                continue
-            distance = _safe(lambda c=c: c.distance)
-            if distance is None:
-                continue
-            # OffsetConstraint.distance is a ModelParameter; compare tokens.
-            d_tok = _safe(lambda d=distance: d.entityToken)
-            if d_tok and d_tok == dim_tok:
-                return c
+            if getattr(c, "objectType", "") == "adsk::fusion::OffsetConstraint":
+                offset_constraints.append(c)
     except Exception:
-        pass
+        return None
+    if not offset_constraints:
+        return None
+
+    dim_param = _safe(lambda: dim.parameter)
+    dim_tok = _safe(lambda: dim_param.entityToken) if dim_param else None
+    dim_name = _safe(lambda: dim_param.name) if dim_param else None
+
+    # 1. Match by parameter entityToken (clean path when .distance works).
+    if dim_tok:
+        for c in offset_constraints:
+            d = _safe(lambda c=c: c.distance)
+            if d is None:
+                continue
+            if _safe(lambda d=d: d.entityToken) == dim_tok:
+                return c
+
+    # 2. Match by parameter name.
+    if dim_name:
+        for c in offset_constraints:
+            d = _safe(lambda c=c: c.distance)
+            if d is None:
+                continue
+            if _safe(lambda d=d: d.name) == dim_name:
+                return c
+
+    # 3. Positional pairing: assume nth offset-dim corresponds to nth offset-constraint.
+    own_tok = _safe(lambda: dim.entityToken)
+    if own_tok:
+        offset_dims: list = []
+        try:
+            dims = sketch.sketchDimensions
+            for i in range(dims.count):
+                d = dims.item(i)
+                if getattr(d, "objectType", "") == "adsk::fusion::SketchOffsetCurvesDimension":
+                    offset_dims.append(d)
+        except Exception:
+            offset_dims = []
+        for idx, od in enumerate(offset_dims):
+            if _safe(lambda od=od: od.entityToken) == own_tok and idx < len(offset_constraints):
+                return offset_constraints[idx]
+
+    # 4. Last resort — if exactly one OffsetConstraint, it must be the one.
+    if len(offset_constraints) == 1:
+        return offset_constraints[0]
+
     return None
 
 

@@ -2,28 +2,29 @@
 
 ## Current Status
 
-**Working on:** Awaiting PC test session 4 to verify 0.1.4 fixes.
-**Version:** 0.1.4 on branch `claude/fusion-constraintlens-spec-94gPu`.
-**Next step:** PC test 4 — pull 0.1.4, check: (1) `OffsetConstraint` row now lists curve names as chips, (2) `SketchOffsetCurvesDimension` row highlights its curves on click. If clean → package for GitHub Release.
-**Blocked by:** PC test session 4 (user needs to be at the Fusion PC).
+**Working on:** Awaiting PC test session 5 to verify 0.1.5 fix.
+**Version:** 0.1.5 on branch `claude/fusion-constraintlens-spec-94gPu`.
+**Next step:** PC test 5 — pull 0.1.5, check that `SketchOffsetCurvesDimension` row now lists curve chips and highlights them on click. If clean → package for GitHub Release.
+**Blocked by:** PC test session 5 (user needs to be at the Fusion PC).
 
-### What's verified working (PC tests 1, 2, 3)
+### What's verified working (PC tests 1, 2, 3, 4)
 - Add-in loads, palette docks, populates without Refresh click.
 - Geometric constraints list with click-to-select, ⌖ select-constraint, × delete + auto-refresh.
 - Dimensions list (Angular, Linear, Diameter, etc.) with parameter expression.
 - Implicit endpoint joins as pseudo-rows with implicit badge AND ⊘ lock icon + tooltip (0.1.3).
 - Tangent spline+line row highlights both objects on click (0.1.3 — token-based selection).
+- OffsetConstraint row lists curve chips (0.1.4).
 - Sketch status banner (name, component, fully/under-constrained).
 - M-1 defensive guard (MidPoint accessor) — both rows render; no crash.
 - OffsetConstraint ACCESSOR error fixed in 0.1.2.
 - Auto-load fixed in 0.1.2 (palette populated without Refresh click).
 
-### What changed in 0.1.4 (needs PC test 4 verification)
-- **OffsetConstraint row chips** — `_b_offset` now iterates `parentCurves` + `childCurves` via shared `_iter_curves_into_chips` helper and emits a chip per curve (was `[]`).
-- **SketchOffsetCurvesDimension selection** — `describe_dimension` now tries `.curves`/`.parentCurves`/`.childCurves` directly, then falls back to finding the matching OffsetConstraint via parameter `entityToken` equality and pulling its curves. `scanner._scan_dimensions` now passes `sketch` into `describe_dimension`.
+### What changed in 0.1.5 (needs PC test 5 verification)
+- **SketchOffsetCurvesDimension matching, hardened** — `_find_offset_constraint_for_dim` now stacks four strategies because `OffsetConstraint.distance` is unreliable (returns None) on the January 2026 build: (1) parameter entityToken, (2) parameter name, (3) positional pairing — nth offset-dim → nth offset-constraint, (4) if there's exactly one OffsetConstraint, use it. Once a match is found, the constraint's `parentCurves` + `childCurves` become the dimension's chips.
 
 ### Known sub-issues to keep on radar
-- Offset-of-spline creates internal control geometry that Fusion doesn't render. User reports a tangent constraint on a line that isn't visible on the canvas. The row still appears in ConstraintLens but the line can't be selected by the user. See backlog item below.
+- Offset-of-spline creates internal control geometry that Fusion doesn't render. User reports a tangent constraint on a line that isn't visible on the canvas. The row still appears in ConstraintLens but the line can't be selected by the user. See backlog #8.
+- `OffsetConstraint.distance` returns None in the January 2026 build (the `@ ?` in the offset row label). The label-only consequence is cosmetic; functionality routes around it via the multi-strategy match above.
 
 ---
 
@@ -105,3 +106,4 @@ tests/
 6. Inline editable dimension expression.
 7. **Sketch-→-palette reverse lookup** — user picks an entity on the canvas, ConstraintLens scrolls to / highlights every row that references it. Lets the user start from the geometry rather than the list.
 8. **Mark invisible / unselectable entities** — Fusion creates internal control geometry for some operations (e.g. spline offsets create a hidden line that participates in a tangent constraint but isn't drawn on the canvas). Detect via `entity.isVisible` (or class-based heuristic) and badge the row / chip so users know the row references geometry they can't click.
+9. **Normalize OffsetConstraint label** — current label `Offset 1→1 curves @ ?` is technical; the `@ ?` (from broken `.distance` accessor) is ugly. Replace with the offset distance from the matched SketchOffsetCurvesDimension's parameter (e.g. `Offset (1→1 curves, 30 mm)`).
