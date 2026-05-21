@@ -170,14 +170,26 @@
             ? `<div class="errors">${row.errors.map(escape).join("; ")}</div>`
             : "";
 
-        const deleteDisabled = !row.isDeletable ? "disabled" : "";
+        // Entity tokens for token-based selection (bypasses accessor re-scan).
+        const entityTokensJson = JSON.stringify(
+            (row.entities || []).map(e => e.token || "").filter(t => t)
+        );
+
         const selectConstraintBtn = row.isPseudo
             ? ""
             : `<button class="btn" data-action="selectConstraint" data-token="${escape(row.token || "")}" title="Select the constraint object itself">⌖</button>`;
 
+        // Pseudo rows (implicit joins) cannot be deleted — show a lock indicator
+        // with an explanatory tooltip instead of a disabled × button.
+        const deleteBtn = row.isPseudo
+            ? `<span class="row-lock" title="Endpoint joins are shared sketch points and cannot be individually deleted">⊘</span>`
+            : `<button class="btn danger" data-action="deleteConstraint"
+                       data-token="${escape(row.token || "")}"${!row.isDeletable ? ' disabled title="This constraint cannot be deleted"' : ""}>×</button>`;
+
         return `
             <div class="row${pseudoClass}${errorClass}"
                  data-row-key="${escape(row.rowKey || "")}"
+                 data-entity-tokens="${escape(entityTokensJson)}"
                  data-action="selectEntities"
                  role="button">
                 <div class="row-glyph">${escape(glyph)}</div>
@@ -192,8 +204,7 @@
                 </div>
                 <div class="row-actions">
                     ${selectConstraintBtn}
-                    <button class="btn danger" data-action="deleteConstraint"
-                            data-token="${escape(row.token || "")}" ${deleteDisabled}>×</button>
+                    ${deleteBtn}
                 </div>
             </div>
         `;
@@ -230,7 +241,12 @@
             const row = actionEl.closest(".row");
             const rowKey = row ? row.getAttribute("data-row-key") || "" : "";
             if (!rowKey) return;
-            send(JS_TO_PY.selectEntities, { rowKey });
+            let entityTokens = [];
+            try {
+                const attr = row ? row.getAttribute("data-entity-tokens") : null;
+                entityTokens = attr ? JSON.parse(attr) : [];
+            } catch (e) { entityTokens = []; }
+            send(JS_TO_PY.selectEntities, { rowKey, entityTokens });
             return;
         }
     });

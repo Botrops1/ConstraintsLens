@@ -350,6 +350,29 @@ _DIMENSION_KINDS: dict[str, str] = {
 def describe_dimension(dim, lab: EntityLabeler) -> ScanResult:
     obj_type = getattr(dim, "objectType", "")
     kind_label = _DIMENSION_KINDS.get(obj_type, obj_type.split("::")[-1] or "Dimension")
+
+    # SketchOffsetCurvesDimension uses .curves (SketchCurveVector), not .entityOne/.entityTwo.
+    if obj_type == "adsk::fusion::SketchOffsetCurvesDimension":
+        curves = _safe(lambda: dim.curves)
+        expr = "?"
+        try:
+            expr = dim.parameter.expression
+        except Exception:
+            pass
+        chips: list[dict] = []
+        n = 0
+        if curves is not None:
+            try:
+                for curve in curves:
+                    chips.append(lab.chip_for(curve))
+                    n += 1
+            except Exception:
+                try:
+                    n = len(curves)
+                except Exception:
+                    pass
+        return ScanResult(f"{kind_label} ({n} curves) = {expr}", chips, [])
+
     e1 = _safe(lambda: dim.entityOne)
     e2 = _safe(lambda: dim.entityTwo)
     expr = "?"

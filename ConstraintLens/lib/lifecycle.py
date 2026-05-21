@@ -243,13 +243,24 @@ def _publish_active(app: adsk.core.Application) -> None:
 
 
 def _handle_select_entities(app: adsk.core.Application, payload: dict) -> None:
-    row_key = payload.get("rowKey") or ""
-    sketch = scanner.active_sketch(app)
-    if sketch is None:
-        return
     design = adsk.fusion.Design.cast(app.activeProduct)
+    entity_tokens: list[str] = payload.get("entityTokens") or []
 
-    # Implicit-join rows: rowKey starts with "join:" + sketchPoint token.
+    # Primary path: JS sends the entity tokens it already has from the scan.
+    # Resolving by token returns the concrete typed object, which is more
+    # reliable than re-scanning accessor names (avoids the spline proxy issue).
+    if entity_tokens:
+        ents = [e for tok in entity_tokens if (e := tokens.resolve(design, tok)) is not None]
+        if ents:
+            selection.select_entities(app.userInterface, ents)
+            return
+
+    # Fallback: re-derive entities from the constraint object directly.
+    # Covers rows whose entity chips had empty tokens (surface refs, unknowns).
+    row_key = payload.get("rowKey") or ""
+    if not row_key:
+        return
+
     if row_key.startswith("join:"):
         point_token = row_key[len("join:"):]
         point = tokens.resolve(design, point_token)
@@ -267,8 +278,7 @@ def _handle_select_entities(app: adsk.core.Application, payload: dict) -> None:
     constraint = tokens.resolve(design, row_key)
     if constraint is None:
         return
-    ents = _entities_for_row(constraint)
-    selection.select_entities(app.userInterface, ents)
+    selection.select_entities(app.userInterface, _entities_for_row(constraint))
 
 
 def _handle_select_constraint(app: adsk.core.Application, payload: dict) -> None:
@@ -311,18 +321,17 @@ def _entities_for_row(constraint) -> list:
             continue
         if v is not None:
             candidates.append(v)
-    # Collections: parentCurves / childCurves / lines on Offset/Polygon.
-    # parentCurves / childCurves are SketchCurveVector (supports iteration + len,
-    # not .count); lines on PolygonConstraint is ObjectCollection (.count + .item).
-    for coll_name in ("parentCurves", "childCurves", "lines"):
+    # Collections: parentCurves / childCurves / lines (Offset/Polygon) and
+    # curves (SketchOffsetCurvesDimension).  parentCurves / childCurves / curves
+    # are SketchCurveVector (iteration + len, no .count); lines is ObjectCollection.
+    for coll_name in ("parentCurves", "childCurves", "lines", "curves"):
         if not hasattr(constraint, coll_name):
             continue
         try:
             coll = getattr(constraint, coll_name)
             if coll is None:
                 continue
-            # Try direct iteration first (works for both SketchCurveVector and
-            # ObjectCollection); fall back to .item(i) loop if that fails.
+            # Direct iteration works for both SketchCurveVector and ObjectCollection.
             try:
                 for item in coll:
                     candidates.append(item)
