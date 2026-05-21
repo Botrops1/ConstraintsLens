@@ -2,17 +2,12 @@
 
 ## Current Status
 
-**Working on:** MVP bug-fix polish (post PC test sessions 1 & 2).
+**Working on:** Awaiting PC test session 3 to verify 0.1.3 fixes.
 **Version:** 0.1.3 on branch `claude/fusion-constraintlens-spec-94gPu`.
-**Next step:** PC test session 3 — pull 0.1.3, re-run steps 3 & 4 of `PC_VALIDATION.md` to verify the three fixes below. If clean, package for GitHub Release (zip `ConstraintLens/` folder, draft release notes).
-**Blocked by:** Nothing. Waiting for PC test confirmation.
+**Next step:** PC test session 3 — pull 0.1.3, re-run steps 3 & 4 of `PC_VALIDATION.md`. Check: (1) tangent spline+line row highlights both objects, (2) SketchOffsetCurvesDimension row highlights curves, (3) implicit join rows show ⊘ with tooltip. If all pass → package for GitHub Release.
+**Blocked by:** PC test session 3 (user needs to be at the Fusion PC).
 
-### What changed in 0.1.3 (needs PC verification)
-- **Spline+line selection fixed** — entity tokens now sent from JS on row click; Python resolves via `findEntityByToken` (concrete type) instead of re-scanning accessors (which returned a base-class proxy for splines).
-- **SketchOffsetCurvesDimension highlight fixed** — `dispatch.py` now iterates `.curves` collection for this dimension type; entity chips carry tokens so selection works.
-- **Implicit join lock UX** — disabled `×` replaced with `⊘` icon + tooltip: *"Endpoint joins are shared sketch points and cannot be individually deleted."*
-
-### What was working before 0.1.3
+### What's verified working (PC tests 1 & 2)
 - Add-in loads, palette docks, populates without Refresh click.
 - Geometric constraints list with click-to-select, ⌖ select-constraint, × delete + auto-refresh.
 - Dimensions list (Angular, Linear, Diameter, etc.) with parameter expression.
@@ -21,6 +16,11 @@
 - M-1 defensive guard (MidPoint accessor) — both rows render; no crash.
 - OffsetConstraint ACCESSOR error fixed in 0.1.2.
 - Auto-load fixed in 0.1.2 (palette populated without Refresh click).
+
+### What changed in 0.1.3 (needs PC test 3 verification)
+- **Spline+line selection** — entity tokens sent from JS; Python resolves via `findEntityByToken`.
+- **SketchOffsetCurvesDimension highlight** — `dispatch.py` iterates `.curves` collection; chips carry tokens.
+- **Implicit join lock UX** — disabled `×` replaced with `⊘` + tooltip explaining why.
 
 ---
 
