@@ -1,53 +1,70 @@
 # ConstraintLens
 
-A Fusion 360 add-in that docks a panel listing every constraint in the active sketch — with click-to-select, delete, and over/under-constrained status. Closes the long-standing UX gap of having to hunt tiny on-canvas glyphs to audit a sketch.
+A Fusion 360 add-in that docks a panel listing every sketch constraint — with click-to-select, delete, and over/under-constrained status. Closes the long-standing UX gap of having to hunt tiny on-canvas glyphs to audit a sketch.
 
-See [`SPEC.md`](./SPEC.md) for the architectural specification.
+See [`SPEC.md`](./SPEC.md) for the full architectural specification.
 
-## Status
+## Features
 
-Pre-MVP scaffold. The full module structure, dispatch table, and palette UI are in place; runtime verification of the five open questions in `SPEC.md` section 10 is still pending.
+- **All constraint types listed** — 21 geometric constraint subtypes (Parallel, Perpendicular, Coincident, Tangent, Equal, Concentric, Midpoint, Symmetric, Offset, Polygon, Circular/Rectangular Pattern, and more), plus all sketch dimension types (Linear, Angular, Radial, Diameter, Offset Curves, etc.).
+- **Implicit endpoint joins** — reconstructed from shared `SketchPoint` instances and shown as pseudo-rows with an "implicit" badge and lock indicator.
+- **Click row → select entities** — highlights the constraint's referenced geometry in the Fusion viewport.
+- **⌖ Select constraint** button — selects the constraint object itself so you can use Fusion's native Delete key.
+- **× Delete** button per row — calls `constraint.deleteMe()`, disabled when `isDeletable == False`.
+- **Sketch status banner** — shows sketch name, component, fully/under-constrained state, and any `healthState` warning.
+- **Auto-refresh** — updates on every `commandTerminated` event (after every sketch edit) without manual intervention; plus a manual **Refresh** button as backstop.
+- **Graceful empty state** — shows "No active sketch" when no sketch is being edited.
 
-## Install (development)
+## Requirements
 
-ConstraintLens requires Fusion 360 (January 2026 release or later, Python 3.14).
+- Fusion 360 January 2026 release or later (Python 3.14 runtime).
+- Windows or macOS.
 
-1. Clone this repository.
-2. Copy or symlink the `ConstraintLens/` folder into your Fusion add-ins directory:
+## Install
+
+1. Download the latest `ConstraintLens-vX.Y.Z.zip` from [**Releases**](../../releases).
+2. Extract the `ConstraintLens/` folder.
+3. Copy it into your Fusion add-ins directory:
    - **Windows**: `%APPDATA%\Autodesk\Autodesk Fusion 360\API\AddIns\`
    - **macOS**: `~/Library/Application Support/Autodesk/Autodesk Fusion 360/API/AddIns/`
-3. In Fusion: **Tools → Scripts and Add-Ins → Add-Ins** tab. Select **ConstraintLens** and click **Run**. Tick *Run on Startup* if you want it loaded automatically.
-4. The **Constraint Lens** button appears in **Solid → Tools → Scripts and Add-Ins** (panel id is verified at runtime via the spike probe; see below).
+4. In Fusion: **Tools → Scripts and Add-Ins → Add-Ins** tab → select **ConstraintLens** → **Run**.
+   - Tick **Run on Startup** to load it automatically on every Fusion launch.
+5. The **Constraint Lens** button appears in **Solid → Tools → Scripts and Add-Ins** panel.
 
-## Verifying the install
+## Usage
 
-Before relying on ConstraintLens, run the test scripts under `tests/`:
-
-1. **Fixture** — Tools → Scripts and Add-Ins → **Scripts** tab → **+** → point at `tests/fixture_sketch/` → **Run**. Creates a deterministic sketch named `ConstraintLens_Fixture` with 4 explicit constraints, 2 dimensions, and 4 implicit endpoint joins.
-2. **Spike probe** — same workflow, point at `tests/spike_probe/`. Open the fixture sketch for edit first. The probe writes a full report to your OS temp directory (`constraintlens_probe.txt`) and previews it in a message box; paste that file contents back to the developer to validate the five open questions in `SPEC.md` section 10.
+1. Open a Fusion design and enter a sketch for editing (double-click a sketch in the browser).
+2. Click **Constraint Lens** in the toolbar. A docked palette opens listing every constraint and dimension.
+3. Click any row to select the referenced geometry in the viewport.
+4. Use **×** to delete a constraint. The list refreshes automatically.
+5. Click **⌖** to select the constraint object itself, then press `Delete` in Fusion for an alternative delete path.
 
 ## Folder structure
 
 ```
 FusionConstraints/
-├── SPEC.md                        Architectural spec — read first.
-├── ConstraintLens/                The Fusion add-in (drop this into AddIns/).
+├── SPEC.md                        Architectural spec.
+├── ConstraintLens/                The Fusion add-in (copy this folder into AddIns/).
 │   ├── ConstraintLens.manifest
 │   ├── ConstraintLens.py
-│   ├── lib/                       Python modules (see SPEC.md section 4).
-│   └── palette/                   HTML/JS/CSS palette UI.
+│   ├── lib/                       Python backend modules.
+│   └── palette/                   HTML/JS/CSS palette UI (vanilla JS, no build step).
 └── tests/
-    ├── fixture_sketch/            Deterministic test sketch (point Fusion Scripts at this folder).
-    ├── fixture_midpoint/          M-1 landmine trigger fixture.
-    └── spike_probe/               API-feasibility probe (run once per Fusion update).
+    ├── fixture_sketch/            Deterministic test sketch — 4 constraints, 2 dims, 4 implicit joins.
+    ├── fixture_midpoint/          Triggers the M-1 midpoint-to-midpoint landmine for defensive testing.
+    └── spike_probe/               API-feasibility probe; re-run after each Fusion update.
 ```
 
-## Known limitations
+To run a test script: **Tools → Scripts and Add-Ins → Scripts → +** → point at the subfolder → **Run**.
 
-- No granular CAD undo for `Delete` actions in MVP — Fusion's `Ctrl+Z` reverts the whole sketch-edit chunk.
+## Known limitations (MVP scope)
+
+- No granular CAD undo for **Delete** — Fusion's `Ctrl+Z` reverts the whole sketch-edit chunk.
 - Implicit coincident endpoint joins cannot be deleted from the panel (they are shared `SketchPoint` instances, not true constraints).
-- `CircularPatternConstraint` and `RectangularPatternConstraint` rows expose only `Delete` (the API exposes no usable accessors).
-- Assembly-level `AssemblyConstraint` (Constrain Components, January 2026 preview API) is intentionally not supported; revisit when Autodesk drops the preview disclaimer.
+- `CircularPatternConstraint` and `RectangularPatternConstraint` rows show only **Delete** — the API exposes no usable entity accessors for these types.
+- `AssemblyConstraint` (Constrain Components, January 2026 preview API) is not supported; revisit when Autodesk drops the preview disclaimer.
+- Palette data may be stale after minimizing/restoring the palette window — use **Refresh** or perform any sketch action to trigger a rescan.
+- `OffsetConstraint` label shows `@ ?` for the distance because `OffsetConstraint.distance` returns `None` in the January 2026 build. The distance is correctly shown on the `SketchOffsetCurvesDimension` row.
 
 ## License
 

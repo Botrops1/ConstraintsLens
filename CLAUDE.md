@@ -2,25 +2,26 @@
 
 ## Current Status
 
-**Working on:** Awaiting PC test session 5 to verify 0.1.5 fix.
+**Working on:** Packaging GitHub Release for v0.1.5.
 **Version:** 0.1.5 on branch `claude/fusion-constraintlens-spec-94gPu`.
-**Next step:** PC test 5 — pull 0.1.5, check that `SketchOffsetCurvesDimension` row now lists curve chips and highlights them on click. If clean → package for GitHub Release.
-**Blocked by:** PC test session 5 (user needs to be at the Fusion PC).
+**Next step:** Publish GitHub Release — zip `ConstraintLens/` folder, draft release notes, tag `v0.1.5`.
+**Blocked by:** Nothing — all 5 PC test sessions complete, all known bugs fixed.
 
-### What's verified working (PC tests 1, 2, 3, 4)
+### What's verified working (PC tests 1–5, all passed)
 - Add-in loads, palette docks, populates without Refresh click.
 - Geometric constraints list with click-to-select, ⌖ select-constraint, × delete + auto-refresh.
 - Dimensions list (Angular, Linear, Diameter, etc.) with parameter expression.
 - Implicit endpoint joins as pseudo-rows with implicit badge AND ⊘ lock icon + tooltip (0.1.3).
 - Tangent spline+line row highlights both objects on click (0.1.3 — token-based selection).
 - OffsetConstraint row lists curve chips (0.1.4).
+- SketchOffsetCurvesDimension row lists curve chips AND highlights on click (0.1.5). ✓ PC test 5
 - Sketch status banner (name, component, fully/under-constrained).
 - M-1 defensive guard (MidPoint accessor) — both rows render; no crash.
 - OffsetConstraint ACCESSOR error fixed in 0.1.2.
 - Auto-load fixed in 0.1.2 (palette populated without Refresh click).
 
-### What changed in 0.1.5 (needs PC test 5 verification)
-- **SketchOffsetCurvesDimension matching, hardened** — `_find_offset_constraint_for_dim` now stacks four strategies because `OffsetConstraint.distance` is unreliable (returns None) on the January 2026 build: (1) parameter entityToken, (2) parameter name, (3) positional pairing — nth offset-dim → nth offset-constraint, (4) if there's exactly one OffsetConstraint, use it. Once a match is found, the constraint's `parentCurves` + `childCurves` become the dimension's chips.
+### What was fixed in 0.1.5 (verified PC test 5)
+- **SketchOffsetCurvesDimension matching, hardened** — `_find_offset_constraint_for_dim` stacks four strategies because `OffsetConstraint.distance` returns None on the January 2026 build: (1) parameter entityToken, (2) parameter name, (3) positional pairing, (4) single-constraint fallback. Once matched, constraint's `parentCurves` + `childCurves` become the dimension's chips.
 
 ### Known sub-issues to keep on radar
 - Offset-of-spline creates internal control geometry that Fusion doesn't render. User reports a tangent constraint on a line that isn't visible on the canvas. The row still appears in ConstraintLens but the line can't be selected by the user. See backlog #8.
