@@ -312,13 +312,23 @@ def _entities_for_row(constraint) -> list:
         if v is not None:
             candidates.append(v)
     # Collections: parentCurves / childCurves / lines on Offset/Polygon.
+    # parentCurves / childCurves are SketchCurveVector (supports iteration + len,
+    # not .count); lines on PolygonConstraint is ObjectCollection (.count + .item).
     for coll_name in ("parentCurves", "childCurves", "lines"):
         if not hasattr(constraint, coll_name):
             continue
         try:
             coll = getattr(constraint, coll_name)
-            for i in range(coll.count):
-                candidates.append(coll.item(i))
+            if coll is None:
+                continue
+            # Try direct iteration first (works for both SketchCurveVector and
+            # ObjectCollection); fall back to .item(i) loop if that fails.
+            try:
+                for item in coll:
+                    candidates.append(item)
+            except TypeError:
+                for i in range(coll.count):
+                    candidates.append(coll.item(i))
         except Exception:
             continue
     return candidates

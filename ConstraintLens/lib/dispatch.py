@@ -204,8 +204,16 @@ def _b_offset(c, lab):
     parent = _safe(lambda: c.parentCurves)
     child = _safe(lambda: c.childCurves)
     distance = _safe(lambda: c.distance)
-    n = parent.count if parent is not None else 0
-    m = child.count if child is not None else 0
+    # parentCurves / childCurves return SketchCurveVector, not ObjectCollection.
+    # SketchCurveVector supports len() and iteration but not .count.
+    try:
+        n = len(parent) if parent is not None else 0
+    except Exception:
+        n = 0
+    try:
+        m = len(child) if child is not None else 0
+    except Exception:
+        m = 0
     expr = "?"
     try:
         if distance is not None:

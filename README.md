@@ -23,8 +23,8 @@ ConstraintLens requires Fusion 360 (January 2026 release or later, Python 3.14).
 
 Before relying on ConstraintLens, run the test scripts under `tests/`:
 
-1. **Fixture** — Tools → Scripts and Add-Ins → **Scripts** tab → **+** → point at `tests/fixture_sketch.py` → **Run**. Creates a deterministic sketch named `ConstraintLens_Fixture` with 4 explicit constraints, 2 dimensions, and 4 implicit endpoint joins.
-2. **Spike probe** — same workflow with `tests/spike_probe.py`. Open the fixture sketch for edit first. The probe writes a full report to your OS temp directory (`constraintlens_probe.txt`) and previews it in a message box; paste that file contents back to the developer to validate the five open questions in `SPEC.md` section 10.
+1. **Fixture** — Tools → Scripts and Add-Ins → **Scripts** tab → **+** → point at `tests/fixture_sketch/` → **Run**. Creates a deterministic sketch named `ConstraintLens_Fixture` with 4 explicit constraints, 2 dimensions, and 4 implicit endpoint joins.
+2. **Spike probe** — same workflow, point at `tests/spike_probe/`. Open the fixture sketch for edit first. The probe writes a full report to your OS temp directory (`constraintlens_probe.txt`) and previews it in a message box; paste that file contents back to the developer to validate the five open questions in `SPEC.md` section 10.
 
 ## Folder structure
 
@@ -37,8 +37,9 @@ FusionConstraints/
 │   ├── lib/                       Python modules (see SPEC.md section 4).
 │   └── palette/                   HTML/JS/CSS palette UI.
 └── tests/
-    ├── fixture_sketch.py          Deterministic test sketch.
-    └── spike_probe.py             API-feasibility probe (run once per Fusion update).
+    ├── fixture_sketch/            Deterministic test sketch (point Fusion Scripts at this folder).
+    ├── fixture_midpoint/          M-1 landmine trigger fixture.
+    └── spike_probe/               API-feasibility probe (run once per Fusion update).
 ```
 
 ## Known limitations

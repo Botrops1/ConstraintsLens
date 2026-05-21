@@ -31,9 +31,9 @@ Each step has a **pass** criterion and a **failure → action** path. Paste the 
 The probe answers all five open questions in `SPEC.md` §10 in one shot.
 
 - [ ] Open any Fusion design (or create a new empty document).
-- [ ] **Tools → Scripts and Add-Ins → Scripts** tab → **+** → point at `tests/fixture_sketch.py` → **Run**. A message box confirms the fixture was created with 4 constraints + 2 dimensions.
+- [ ] **Tools → Scripts and Add-Ins → Scripts** tab → **+** → point at the **folder** `tests/fixture_sketch/` → **Run**. A message box confirms the fixture was created with 4 constraints + 2 dimensions. *(Fusion requires the script to live inside a folder with the same name — `fixture_sketch/fixture_sketch.py`.)*
 - [ ] **Double-click** the new `ConstraintLens_Fixture` sketch in the browser to enter sketch edit.
-- [ ] Back to Scripts tab → **+** → point at `tests/spike_probe.py` → **Run**.
+- [ ] Back to Scripts tab → **+** → point at the **folder** `tests/spike_probe/` → **Run**.
 - [ ] The probe writes `constraintlens_probe.txt` to the OS temp directory and previews the first 1500 chars in a message box. **Open the temp file and paste its full contents back into chat.**
 
 **Pass**: temp file exists, probe completes without a Python traceback.
@@ -80,7 +80,7 @@ What the probe answers, mapped back to `SPEC.md` open questions:
 
 ## 5. Exercise the landmine guards
 
-- [ ] Run `tests/fixture_midpoint.py`. It creates `ConstraintLens_Midpoint_M1` with two midpoint constraints sharing the same sketch point — the canonical M-1 trigger configuration.
+- [ ] **Scripts tab → + → `tests/fixture_midpoint/`** → **Run**. It creates `ConstraintLens_Midpoint_M1` with two midpoint constraints sharing the same sketch point — the canonical M-1 trigger configuration.
 - [ ] Open that sketch for edit. The panel should show two MidPoint rows. **If one of them carries an `accessor` badge with an error message, M-1 is real and the defensive guard worked.** If not, M-1 doesn't trigger via this configuration on the January 2026 build — note that finding.
 - [ ] **Test palette visibility (Q3)** — close the panel via its X button, then click **Constraint Lens** in the toolbar again. The panel should reopen with the current sketch data.
 - [ ] **Test entityToken stability (Q4)** — from the spike probe output, copy the captured `entityToken`. Save the document. Close the document tab; reopen it. Open Fusion's **Text Commands** window and run:

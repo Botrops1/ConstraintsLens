@@ -268,9 +268,26 @@
     }
 
     // --- Hello ----------------------------------------------------------
+    // Fusion injects adsk.fusionSendData asynchronously after DOMContentLoaded.
+    // Poll until the bridge is ready before firing paletteReady, so the initial
+    // scan happens automatically without requiring a manual Refresh click.
+
+    function _sendWhenReady(action, payload, maxMs) {
+        const deadline = Date.now() + (maxMs || 5000);
+        function attempt() {
+            if (typeof adsk !== "undefined" && adsk.fusionSendData) {
+                adsk.fusionSendData(action, JSON.stringify(payload || {}));
+                return;
+            }
+            if (Date.now() < deadline) {
+                setTimeout(attempt, 100);
+            }
+        }
+        attempt();
+    }
 
     document.addEventListener("DOMContentLoaded", () => {
         state.loaded = true;
-        send(JS_TO_PY.paletteReady, {});
+        _sendWhenReady(JS_TO_PY.paletteReady, {});
     });
 })();
