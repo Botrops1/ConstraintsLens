@@ -1,0 +1,13 @@
+# Release artifacts — built locally, uploaded to GitHub Releases
+*.zip
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+
+# macOS
+.DS_Store
+
+# Ruff / linter caches
+.ruff_cache/
