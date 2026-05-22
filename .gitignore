@@ -1,0 +1,20 @@
+# Release artifacts — built locally, uploaded to GitHub Releases
+*.zip
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+
+# macOS
+.DS_Store
+
+# Ruff / linter caches
+.ruff_cache/
+
+# IDE
+.vscode/
+
+# Fusion native icons — copied at add-in startup from the Fusion install
+# (proprietary Autodesk assets, not committed)
+ConstraintLens/palette/icons/

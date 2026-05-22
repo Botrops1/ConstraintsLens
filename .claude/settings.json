@@ -1,0 +1,17 @@
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "if": "Bash(git push*)",
+            "command": "BRANCH=$(git rev-parse --abbrev-ref HEAD 2>/dev/null); ORIGIN=\"origin/$BRANCH\"; if git rev-parse \"$ORIGIN\" >/dev/null 2>&1; then BASE=\"$ORIGIN\"; else BASE=$(git rev-list --max-parents=0 HEAD 2>/dev/null); fi; COUNT=$(git log \"$BASE..HEAD\" --oneline 2>/dev/null | wc -l | tr -d ' '); if [ \"$COUNT\" -gt 0 ] && ! git log \"$BASE..HEAD\" --name-only --format=\"\" 2>/dev/null | grep -q \"^CLAUDE\\.md$\"; then printf '{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"additionalContext\":\"REMINDER: CLAUDE.md has not been updated in the commits being pushed. Update the Current Status section (Working on / Next step / Blocked by) and commit it before pushing.\"}}'; fi",
+            "statusMessage": "Checking CLAUDE.md is up to date…"
+          }
+        ]
+      }
+    ]
+  }
+}

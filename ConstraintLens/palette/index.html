@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Constraint Lens</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="sketch-name-bar">
+        <div class="status" id="status">Loading…</div>
+    </div>
+    <div class="toolbar">
+        <button class="btn" id="clear-selection"
+                title="Clear selection" style="display:none">Clear</button>
+        <button class="btn danger" id="bulk-delete"
+                title="Delete selected constraints" style="display:none">Delete 0</button>
+        <button class="btn" id="highlight-under"
+                title="Highlight underconstrained entities on the canvas"
+                disabled>Show underconstraint elements</button>
+        <button class="btn" id="find-selected"
+                title="Highlight rows that reference the currently selected canvas entity"
+                disabled>Find</button>
+        <button class="btn" id="refresh" title="Re-scan the active sketch">Refresh</button>
+    </div>
+
+    <div class="filter-bar">
+        <input type="search" id="filter" placeholder="Filter by label or type…"
+               autocomplete="off" spellcheck="false">
+    </div>
+
+    <div id="entity-readout"></div>
+
+    <main id="root">
+        <div class="empty">Loading…</div>
+    </main>
+
+    <script src="app.js"></script>
+</body>
+</html>

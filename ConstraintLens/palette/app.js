@@ -1,0 +1,708 @@
+// ConstraintLens palette UI — vanilla JS, no framework, no build step.
+// Mirrors the message contract in SPEC.md section 7.
+
+(function () {
+    "use strict";
+
+    // --- Action names — must match lib/messaging.py exactly. -------------
+
+    const JS_TO_PY = {
+        paletteReady: "paletteReady",
+        requestRefresh: "requestRefresh",
+        selectEntities: "selectEntities",
+        selectConstraint: "selectConstraint",
+        deleteConstraint: "deleteConstraint",
+        showUnderconstrained: "showUnderconstrained",
+        bulkDelete: "bulkDelete",
+        editDimension: "editDimension",
+        findSelected: "findSelected",
+        openEditDialog: "openEditDialog",
+        editParameter: "editParameter",
+    };
+
+    const PY_TO_JS = {
+        data: "data",
+        noActiveSketch: "noActiveSketch",
+        error: "error",
+        actionResult: "actionResult",
+        selectionResult: "selectionResult",
+    };
+
+    // --- SVG icons, one per constraint type. --------------------------------
+    // Inserted as raw HTML (not escaped); safe because these are hardcoded constants.
+
+    const _S = `<svg width="24" height="24" viewBox="0 0 16 16" fill="none">`;
+    const _E = `</svg>`;
+    const _L = (x1,y1,x2,y2,w,extra="") =>
+        `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="currentColor" stroke-width="${w}" stroke-linecap="round"${extra}/>`;
+    const _C = (cx,cy,r,fill) => fill
+        ? `<circle cx="${cx}" cy="${cy}" r="${r}" fill="currentColor"/>`
+        : `<circle cx="${cx}" cy="${cy}" r="${r}" stroke="currentColor" stroke-width="1.5"/>`;
+
+    const TYPE_ICONS = {
+        HorizontalConstraint:
+            _S + _L(2,8,14,8,1.5) + _L(2,5,2,11,1.5) + _L(14,5,14,11,1.5) + _E,
+
+        VerticalConstraint:
+            _S + _L(8,2,8,14,1.5) + _L(5,2,11,2,1.5) + _L(5,14,11,14,1.5) + _E,
+
+        HorizontalPointsConstraint:
+            _S + _C(3,8,1.5,true) + _C(13,8,1.5,true)
+            + _L(5,8,11,8,1,` stroke-dasharray="2 1.5"`) + _E,
+
+        VerticalPointsConstraint:
+            _S + _C(8,3,1.5,true) + _C(8,13,1.5,true)
+            + _L(8,5,8,11,1,` stroke-dasharray="2 1.5"`) + _E,
+
+        ParallelConstraint:
+            _S + _L(2,13,8,3,1.5) + _L(8,13,14,3,1.5) + _E,
+
+        PerpendicularConstraint:
+            _S + _L(4,2,4,13,1.5) + _L(4,13,14,13,1.5)
+            + `<path d="M4 9 L8 9 L8 13" stroke="currentColor" stroke-width="1" fill="none"/>` + _E,
+
+        CollinearConstraint:
+            _S + _L(2,13,14,3,1.5) + _C(5,11,1.5,true) + _C(8,8,1.5,true) + _C(11,5,1.5,true) + _E,
+
+        CoincidentConstraint:
+            _S + _L(2,13,8,8,1.5) + _L(14,3,8,8,1.5) + _C(8,8,2.5,true) + _E,
+
+        CoincidentToSurfaceConstraint:
+            _S + _L(2,13,14,13,1.5) + _C(8,8,2.5,true) + _L(8,10.5,8,13,1.5) + _E,
+
+        TangentConstraint:
+            _S + _L(1,5,15,5,1.5)
+            + `<circle cx="8" cy="10" r="4.5" stroke="currentColor" stroke-width="1.5"/>` + _E,
+
+        EqualConstraint:
+            _S + _L(3,6,13,6,1.5) + _L(3,10,13,10,1.5) + _E,
+
+        ConcentricConstraint:
+            _S + _C(8,8,6.5,false) + _C(8,8,2.5,false) + _E,
+
+        MidPointConstraint:
+            _S + _L(2,12,14,12,1.5) + _L(8,4,8,12,1.5)
+            + _C(8,12,1.5,true)
+            + `<circle cx="8" cy="4" r="1.5" stroke="currentColor" stroke-width="1.5" fill="none"/>` + _E,
+
+        SymmetryConstraint:
+            _S + _L(8,2,8,14,1,` stroke-dasharray="2 2"`)
+            + `<polyline points="4,6 2,8 4,10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>`
+            + `<polyline points="12,6 14,8 12,10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>` + _E,
+
+        OffsetConstraint:
+            _S + `<path d="M2 5 Q8 3 14 5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" fill="none"/>`
+            + `<path d="M2 11 Q8 9 14 11" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" fill="none"/>`
+            + _L(8,5,8,9,1,` stroke-dasharray="1.5 1.5"`) + _E,
+
+        PolygonConstraint:
+            _S + `<polygon points="8,2 13.2,5 13.2,11 8,14 2.8,11 2.8,5" stroke="currentColor" stroke-width="1.5"/>` + _E,
+
+        CircularPatternConstraint:
+            _S + `<circle cx="8" cy="8" r="5.5" stroke="currentColor" stroke-width="1" stroke-dasharray="2 2"/>`
+            + _C(8,2.5,1.5,true) + _C(12.3,10.5,1.5,true) + _C(3.7,10.5,1.5,true) + _E,
+
+        RectangularPatternConstraint:
+            _S + `<rect x="2" y="2" width="5" height="5" stroke="currentColor" stroke-width="1.5"/>`
+            + `<rect x="9" y="2" width="5" height="5" stroke="currentColor" stroke-width="1.5"/>`
+            + `<rect x="2" y="9" width="5" height="5" stroke="currentColor" stroke-width="1.5"/>`
+            + `<rect x="9" y="9" width="5" height="5" stroke="currentColor" stroke-width="1.5"/>` + _E,
+
+        LineOnPlanarSurfaceConstraint:
+            _S + _L(2,12,14,12,1.5)
+            + _L(2,14,5,12,1,"") + _L(6,14,9,12,1,"") + _L(10,14,13,12,1,"")
+            + _L(8,3,8,12,1.5) + _E,
+
+        LineParallelToPlanarSurfaceConstraint:
+            _S + _L(2,13,14,13,1.5) + _L(2,6,14,6,1.5)
+            + _L(8,6,8,13,1,` stroke-dasharray="2 2"`) + _E,
+
+        PerpendicularToSurfaceConstraint:
+            _S + _L(2,13,14,13,1.5) + _L(8,3,8,13,1.5)
+            + `<path d="M8 9 L11 9 L11 13" stroke="currentColor" stroke-width="1" fill="none"/>` + _E,
+
+        ImplicitCoincidentJoin:
+            _S + _L(2,13,8,8,1.5) + _L(14,3,8,8,1.5) + _C(8,8,2.5,true) + _E,
+
+        // Generic fallback for all dimension rows (glyph stem "dimension").
+        dimension:
+            _S + _L(3,6,3,14,1.5) + _L(13,6,13,14,1.5) + _L(3,10,13,10,1.5)
+            + `<path d="M6 8 L3 10 L6 12" stroke="currentColor" stroke-width="1" fill="none" stroke-linecap="round" stroke-linejoin="round"/>`
+            + `<path d="M10 8 L13 10 L10 12" stroke="currentColor" stroke-width="1" fill="none" stroke-linecap="round" stroke-linejoin="round"/>`
+            + _E,
+    };
+
+    // --- State -----------------------------------------------------------
+
+    const state = {
+        snapshot: null,
+        loaded: false,
+        filter: "",
+        selected: new Set(),
+        highlights: new Set(),   // rowKeys highlighted by Find (#7)
+        collapsed: new Set(),    // section ids collapsed by user (#14)
+    };
+
+    const els = {
+        root: document.getElementById("root"),
+        status: document.getElementById("status"),
+        refresh: document.getElementById("refresh"),
+        highlightUnder: document.getElementById("highlight-under"),
+        findSelected: document.getElementById("find-selected"),
+        bulkDelete: document.getElementById("bulk-delete"),
+        clearSelection: document.getElementById("clear-selection"),
+        filter: document.getElementById("filter"),
+        entityReadout: document.getElementById("entity-readout"),
+    };
+
+    // --- Outgoing messages -----------------------------------------------
+
+    function send(action, payload) {
+        if (typeof adsk === "undefined" || !adsk.fusionSendData) {
+            console.warn("adsk.fusionSendData not present yet:", action);
+            return;
+        }
+        adsk.fusionSendData(action, JSON.stringify(payload || {}));
+    }
+
+    els.refresh.addEventListener("click", () => send(JS_TO_PY.requestRefresh, {}));
+    els.highlightUnder.addEventListener("click", () => send(JS_TO_PY.showUnderconstrained, {}));
+    els.findSelected.addEventListener("click", () => send(JS_TO_PY.findSelected, {}));
+    els.filter.addEventListener("input", () => {
+        state.filter = els.filter.value.trim().toLowerCase();
+        renderSnapshot();
+    });
+    els.bulkDelete.addEventListener("click", () => {
+        const tokens = [...state.selected];
+        if (tokens.length === 0) return;
+        const n = tokens.length;
+        if (!confirm(`Delete ${n} constraint${n !== 1 ? "s" : ""}?\n(Ctrl+Z in Fusion can undo sketch operations.)`)) return;
+        send(JS_TO_PY.bulkDelete, { tokens });
+        state.selected.clear();
+        updateBulkDeleteButton();
+    });
+    els.clearSelection.addEventListener("click", () => {
+        state.selected.clear();
+        updateBulkDeleteButton();
+        renderSnapshot();
+    });
+
+    // --- Incoming messages ----------------------------------------------
+
+    // Fusion calls window.fusionJavaScriptHandler.handle(action, data).
+    window.fusionJavaScriptHandler = {
+        handle(action, data) {
+            let payload = {};
+            try {
+                payload = data ? JSON.parse(data) : {};
+            } catch (e) {
+                console.warn("malformed payload for", action, e);
+            }
+            switch (action) {
+                case PY_TO_JS.data: onData(payload); break;
+                case PY_TO_JS.noActiveSketch: onNoActiveSketch(payload); break;
+                case PY_TO_JS.error: onError(payload); break;
+                case PY_TO_JS.actionResult: onActionResult(payload); break;
+                case PY_TO_JS.selectionResult: onSelectionResult(payload); break;
+                default: console.log("unknown action", action, payload);
+            }
+            return "OK";
+        },
+    };
+
+    function updateBulkDeleteButton() {
+        const n = state.selected.size;
+        const show = n > 0;
+        els.bulkDelete.style.display = show ? "" : "none";
+        els.clearSelection.style.display = show ? "" : "none";
+        if (show) els.bulkDelete.textContent = `Delete ${n}`;
+    }
+
+    function onData(payload) {
+        state.snapshot = payload;
+        state.selected.clear();
+        updateBulkDeleteButton();
+        els.highlightUnder.disabled = false;
+        els.findSelected.disabled = false;
+        renderSnapshot();
+    }
+
+    function onNoActiveSketch(payload) {
+        state.snapshot = null;
+        state.selected.clear();
+        state.highlights.clear();
+        updateBulkDeleteButton();
+        els.highlightUnder.disabled = true;
+        els.findSelected.disabled = true;
+        showEntityReadout("");
+        setStatus(payload.reason || "No active sketch.", "warn");
+        els.root.innerHTML = `<div class="empty">${escape(payload.reason || "Open a sketch for edit to see its constraints.")}</div>`;
+    }
+
+    function onError(payload) {
+        setStatus(`Error: ${payload.message || "unknown"}`, "error");
+    }
+
+    function onActionResult(payload) {
+        const cls = payload.ok ? "ok" : "error";
+        showToast(payload.message || (payload.ok ? "OK" : "Failed"), cls);
+    }
+
+    function onSelectionResult(payload) {
+        const tokens = payload.tokens || [];
+        state.highlights.clear();
+
+        if (!state.snapshot || tokens.length === 0) {
+            showEntityReadout("");
+            renderSnapshot();
+            return;
+        }
+
+        // Build entity token → label and token → [rowKey] indices from snapshot.
+        const tokenToLabel = new Map();
+        const tokenToRows = new Map();
+        const _addToken = (tok, label, rowKey) => {
+            if (!tok) return;
+            if (!tokenToLabel.has(tok)) tokenToLabel.set(tok, label);
+            if (!tokenToRows.has(tok)) tokenToRows.set(tok, []);
+            tokenToRows.get(tok).push(rowKey);
+        };
+        for (const section of [
+            state.snapshot.constraints,
+            state.snapshot.dimensions,
+            state.snapshot.patterns,
+            state.snapshot.implicitJoins,
+        ]) {
+            for (const row of (section || [])) {
+                // Index the row's own token (dimension/constraint entity itself).
+                _addToken(row.token, row.label || row.kind || "?", row.rowKey);
+                // Index each entity chip token (referenced geometry).
+                for (const chip of (row.entities || [])) {
+                    _addToken(chip.token, chip.label || chip.kind || "?", row.rowKey);
+                }
+            }
+        }
+
+        // #12 — entity name readout.
+        const labels = tokens.map(t => tokenToLabel.get(t)).filter(Boolean);
+        showEntityReadout(labels.length ? "Selected: " + labels.join(", ") : "Selected entity not in any row.");
+
+        // #7 — collect matching row keys.
+        for (const tok of tokens) {
+            for (const rk of (tokenToRows.get(tok) || [])) {
+                state.highlights.add(rk);
+            }
+        }
+
+        renderSnapshot();
+
+        // Scroll to first highlighted row.
+        const first = els.root.querySelector(".row.highlighted");
+        if (first) first.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    }
+
+    function showEntityReadout(text) {
+        els.entityReadout.textContent = text;
+        els.entityReadout.style.display = text ? "block" : "none";
+    }
+
+    // --- Filtering -------------------------------------------------------
+
+    function matchesFilter(row, q) {
+        if (!q) return true;
+        return (row.label || "").toLowerCase().includes(q)
+            || (row.kind || "").toLowerCase().includes(q)
+            || (row.entities || []).some(e => (e.label || "").toLowerCase().includes(q));
+    }
+
+    // --- Rendering -------------------------------------------------------
+
+    function renderSnapshot() {
+        const snap = state.snapshot;
+        if (!snap) {
+            els.root.innerHTML = `<div class="empty">No data.</div>`;
+            return;
+        }
+
+        const sk = snap.sketch || {};
+        const fully = sk.isFullyConstrained;
+        const statusText = sk.name
+            ? `${escape(sk.name)}${sk.componentName ? " · " + escape(sk.componentName) : ""}`
+            + ` — ${fully ? "fully constrained" : "under-constrained"}`
+            : "No active sketch.";
+        setStatus(statusText, fully ? "ok" : "warn");
+
+        const q = state.filter;
+        const allC = snap.constraints || [];
+        const allD = snap.dimensions || [];
+        const allP = snap.patterns || [];
+        const allJ = snap.implicitJoins || [];
+        const c = allC.filter(r => matchesFilter(r, q));
+        const d = allD.filter(r => matchesFilter(r, q));
+        const p = allP.filter(r => matchesFilter(r, q));
+        const j = allJ.filter(r => matchesFilter(r, q));
+
+        const parts = [];
+
+        if (c.length === 0 && d.length === 0 && p.length === 0 && j.length === 0) {
+            const totalAll = allC.length + allD.length + allP.length + allJ.length;
+            if (q && totalAll > 0) {
+                parts.push(`<div class="empty">No matches for &ldquo;${escape(q)}&rdquo;.</div>`);
+            } else {
+                parts.push(`<div class="empty">This sketch has no constraints or dimensions yet.</div>`);
+            }
+        }
+
+        _renderSection(parts, "constraints", "Geometric constraints", c, allC.length, q);
+        _renderSection(parts, "dimensions",  "Dimensions",            d, allD.length, q);
+        _renderSection(parts, "patterns",    "Patterns and figures",  p, allP.length, q);
+        _renderSection(parts, "joins",       "Endpoint joins",        j, allJ.length, q);
+
+        els.root.innerHTML = parts.join("");
+    }
+
+    function _renderSection(parts, id, title, rows, totalCount, q) {
+        if (rows.length === 0) return;
+        const collapsed = state.collapsed.has(id);
+        const chevron = collapsed ? "▸" : "▾";
+        const countLabel = q
+            ? `${rows.length} of ${totalCount}`
+            : `${totalCount}`;
+        parts.push(
+            `<div class="section-header" data-section="${id}" role="button" title="Click to collapse/expand">` +
+            `<span class="section-title">${title} (${countLabel})</span>` +
+            `<span class="section-chevron">${chevron}</span>` +
+            `</div>`
+        );
+        if (!collapsed) {
+            parts.push(`<div class="section-rows">`);
+            for (const row of rows) parts.push(rowHTML(row));
+            parts.push(`</div>`);
+        }
+    }
+
+    // Native PNG load failure → swap in the SVG from TYPE_ICONS.
+    // Error events on <img> don't bubble, so we use capture phase.
+    document.addEventListener("error", (e) => {
+        const img = e.target;
+        if (!img.classList || !img.classList.contains("ci")) return;
+        const k = img.getAttribute("data-k") || "";
+        const svg = TYPE_ICONS[k];
+        const tmpl = document.createElement("template");
+        tmpl.innerHTML = svg || `<span style="line-height:16px">·</span>`;
+        img.replaceWith(tmpl.content.firstElementChild || tmpl.content.firstChild);
+    }, true);
+
+    function rowHTML(row) {
+        // Prefer kind-specific icon; fall back to glyph stem (e.g. "dimension").
+        const _glyphStem = (row.glyph || "").replace(/\.svg$/, "");
+        const iconKey = TYPE_ICONS[row.kind] ? row.kind
+                      : (TYPE_ICONS[_glyphStem] ? _glyphStem : null);
+        const iconImg = iconKey
+            ? `<img class="ci" src="icons/${iconKey}.png" data-k="${escape(iconKey)}" width="24" height="24" alt="">`
+            : `<span style="line-height:24px">·</span>`;
+        const glyphAttrs = (!row.isPseudo && row.token)
+            ? ` data-action="selectConstraint" data-token="${escape(row.token || "")}" title="Select the constraint object itself"`
+            : "";
+        const hasErrors = row.errors && row.errors.length > 0;
+        const chips = (row.entities || []).map(chipHTML).join("");
+        const pseudoClass = row.isPseudo ? " pseudo" : "";
+        const errorClass = hasErrors ? " has-errors" : "";
+        const highlightClass = state.highlights.has(row.rowKey) ? " highlighted" : "";
+        const isDimension = !!row.isDimension;
+        const dblclickTitle = (_DBLCLICK_KINDS.has(row.kind) || isDimension)
+            ? ` title="Double-click to open edit dialog"` : ``;
+        const badges = [];
+        if (row.isPseudo) badges.push(`<span class="badge implicit">implicit</span>`);
+        if (hasErrors) badges.push(`<span class="badge error" title="An entity property returned no data in this Fusion build. Some chips may be missing — row is still functional.">accessor</span>`);
+        const errorsHTML = hasErrors
+            ? `<div class="errors">${row.errors.map(escape).join("; ")}</div>`
+            : "";
+
+        // Inline dimension expression (#6) — shown only for rows with a parameter.
+        const exprHTML = row.parameterExpression
+            ? `<div class="dim-expr-wrap">
+                <span class="dim-expr">${escape(row.parameterExpression)}</span>
+                <button class="btn-edit" data-action="editExpr" data-token="${escape(row.token || "")}"
+                        title="Edit expression (Enter to commit, Esc to cancel)">✎</button>
+               </div>`
+            : "";
+
+        // Pattern / polygon editable parameters (#15).
+        const paramsHTML = (row.parameters || []).map(p => {
+            const hasToken = p.token && p.token.length > 0;
+            const pencil = hasToken
+                ? `<button class="btn-edit" data-action="editParam" data-token="${escape(p.token)}"
+                           title="Edit ${escape(p.label)} (Enter to commit, Esc to cancel)">✎</button>`
+                : "";
+            return `<div class="dim-expr-wrap">
+                <span class="dim-expr-lbl">${escape(p.label)}:</span>
+                <span class="dim-expr">${escape(p.expression)}</span>
+                ${pencil}
+            </div>`;
+        }).join("");
+
+        // Entity tokens for token-based selection (bypasses accessor re-scan).
+        const entityTokensJson = JSON.stringify(
+            (row.entities || []).map(e => e.token || "").filter(t => t)
+        );
+
+        const canCheck = !row.isPseudo && row.isDeletable && row.token;
+        const checked = canCheck && state.selected.has(row.token) ? " checked" : "";
+        const checkboxHTML = canCheck
+            ? `<input type="checkbox" class="row-check" data-token="${escape(row.token)}"${checked}>`
+            : `<span class="row-check-pad"></span>`;
+
+        const selectConstraintBtn = "";
+
+        // Pseudo rows (implicit joins) can't be checked or deleted individually.
+        const lockBtn = row.isPseudo
+            ? `<span class="row-lock" title="Endpoint joins are shared sketch points and cannot be deleted">⊘</span>`
+            : "";
+
+        return `
+            <div class="row${pseudoClass}${errorClass}${highlightClass}"
+                 data-row-key="${escape(row.rowKey || "")}"
+                 data-kind="${escape(row.kind || "")}"
+                 data-entity-tokens="${escape(entityTokensJson)}"
+                 data-action="selectEntities"
+                 ${isDimension ? 'data-is-dimension="1"' : ""}
+                 role="button"${dblclickTitle}>
+                ${checkboxHTML}
+                <div class="row-glyph"${glyphAttrs}>${iconImg}</div>
+                <div class="row-body">
+                    <div class="row-label">${escape(row.label || "")}</div>
+                    ${exprHTML}
+                    ${paramsHTML}
+                    <div class="row-meta">
+                        <span class="kind">${escape(row.kind || "")}</span>
+                        ${badges.join("")}
+                    </div>
+                    ${chips ? `<div class="chips">${chips}</div>` : ""}
+                    ${errorsHTML}
+                </div>
+                <div class="row-actions">
+                    ${selectConstraintBtn}
+                    ${lockBtn}
+                </div>
+            </div>
+        `;
+    }
+
+    function chipHTML(chip) {
+        const lbl = chip.label || chip.kind || "?";
+        const tokAttr = chip.token ? ` data-token="${escape(chip.token)}"` : "";
+        if (chip.invisible) {
+            return `<span class="chip invisible" data-label="${escape(lbl)}"${tokAttr} title="Not visible on canvas — click to filter and select">${escape(lbl)} <span class="chip-hidden">hidden</span></span>`;
+        }
+        return `<span class="chip" data-label="${escape(lbl)}"${tokAttr} title="Click to filter and select">${escape(lbl)}</span>`;
+    }
+
+    // --- Delegated event handling ---------------------------------------
+
+    // Checkbox changes update selection state independently of row clicks.
+    els.root.addEventListener("change", (evt) => {
+        if (!evt.target.matches(".row-check")) return;
+        const token = evt.target.getAttribute("data-token") || "";
+        if (!token) return;
+        if (evt.target.checked) {
+            state.selected.add(token);
+        } else {
+            state.selected.delete(token);
+        }
+        updateBulkDeleteButton();
+    });
+
+    els.root.addEventListener("click", (evt) => {
+        // Checkbox clicks are handled by the change listener above.
+        if (evt.target.matches(".row-check")) return;
+
+        // Section header click (#14) — toggle collapse.
+        const header = evt.target.closest(".section-header[data-section]");
+        if (header) {
+            const id = header.getAttribute("data-section");
+            if (state.collapsed.has(id)) {
+                state.collapsed.delete(id);
+            } else {
+                state.collapsed.add(id);
+            }
+            renderSnapshot();
+            return;
+        }
+
+        // Chip click (#16) — filter by label and select entity on canvas.
+        const chip = evt.target.closest(".chip");
+        if (chip && els.root.contains(chip)) {
+            evt.stopPropagation();
+            const label = chip.getAttribute("data-label") || "";
+            const token = chip.getAttribute("data-token") || "";
+            if (label) {
+                state.filter = label.toLowerCase();
+                els.filter.value = label;
+                renderSnapshot();
+            }
+            if (token) {
+                send(JS_TO_PY.selectEntities, { entityTokens: [token] });
+            }
+            return;
+        }
+
+        const actionEl = evt.target.closest("[data-action]");
+        if (!actionEl) return;
+        const action = actionEl.getAttribute("data-action");
+
+        if (action === "selectConstraint") {
+            evt.stopPropagation();
+            const token = actionEl.getAttribute("data-token") || "";
+            if (!token) return;
+            send(JS_TO_PY.selectConstraint, { token });
+            return;
+        }
+
+        if (action === "editExpr" || action === "editParam") {
+            evt.stopPropagation();
+            startEditExpr(actionEl);
+            return;
+        }
+
+        if (action === "selectEntities") {
+            const row = actionEl.closest(".row");
+            const rowKey = row ? row.getAttribute("data-row-key") || "" : "";
+            if (!rowKey) return;
+            let entityTokens = [];
+            try {
+                const attr = row ? row.getAttribute("data-entity-tokens") : null;
+                entityTokens = attr ? JSON.parse(attr) : [];
+            } catch (e) { entityTokens = []; }
+            send(JS_TO_PY.selectEntities, { rowKey, entityTokens });
+            return;
+        }
+    });
+
+    function startEditExpr(editBtn) {
+        const wrap = editBtn.closest(".dim-expr-wrap");
+        if (!wrap) return;
+        const span = wrap.querySelector(".dim-expr");
+        if (!span) return;
+        const token = editBtn.getAttribute("data-token") || "";
+        const currentVal = span.textContent || "";
+        // editParam buttons use editParameter action; editExpr use editDimension.
+        const pyAction = editBtn.getAttribute("data-action") === "editParam"
+            ? JS_TO_PY.editParameter : JS_TO_PY.editDimension;
+
+        const input = document.createElement("input");
+        input.type = "text";
+        input.className = "expr-input";
+        input.value = currentVal;
+
+        wrap.replaceChild(input, span);
+        editBtn.style.visibility = "hidden";
+        input.focus();
+        input.select();
+
+        function commit() {
+            if (input.disabled) return;
+            const newExpr = input.value.trim();
+            if (!newExpr) { cancelEdit(); return; }
+            input.disabled = true;
+            send(pyAction, { token, expression: newExpr });
+            // Python always sends a data refresh after, which rebuilds the DOM.
+        }
+
+        function cancelEdit() {
+            if (!wrap.contains(input)) return;
+            wrap.replaceChild(span, input);
+            editBtn.style.visibility = "";
+        }
+
+        input.addEventListener("keydown", (e) => {
+            if (e.key === "Enter") { e.preventDefault(); e.stopPropagation(); commit(); }
+            if (e.key === "Escape") { e.preventDefault(); e.stopPropagation(); cancelEdit(); }
+            e.stopPropagation();
+        });
+        input.addEventListener("blur", () => {
+            // Delay to let keydown fire first; disabled flag prevents double-commit.
+            setTimeout(() => {
+                if (document.contains(input) && !input.disabled) commit();
+            }, 150);
+        });
+        input.addEventListener("click", (e) => e.stopPropagation());
+    }
+
+    // Double-click on a row → open Fusion's native edit dialog (#13).
+    // Single-click still selects entities; the two preceding clicks on a
+    // dblclick are harmless (they just re-select the same entities).
+    const _DBLCLICK_KINDS = new Set([
+        "Offset curves",
+        "CircularPatternConstraint",
+        "RectangularPatternConstraint",
+    ]);
+
+    els.root.addEventListener("dblclick", (evt) => {
+        // Ignore dblclick on interactive controls inside the row.
+        if (evt.target.closest(".btn-edit, .expr-input, .row-check, .btn")) return;
+        const row = evt.target.closest(".row[data-kind]");
+        if (!row) return;
+        const kind = row.getAttribute("data-kind") || "";
+        const isDimension = row.hasAttribute("data-is-dimension");
+        if (!_DBLCLICK_KINDS.has(kind) && !isDimension) return;
+        const rowKey = row.getAttribute("data-row-key") || "";
+        send(JS_TO_PY.openEditDialog, { kind, rowKey, isDimension });
+    });
+
+    // --- Helpers ---------------------------------------------------------
+
+    function setStatus(text, cls) {
+        els.status.textContent = text;
+        els.status.className = "status" + (cls ? " " + cls : "");
+    }
+
+    let toastTimer = null;
+    function showToast(text, cls) {
+        let toast = document.querySelector(".toast");
+        if (!toast) {
+            toast = document.createElement("div");
+            toast.className = "toast";
+            document.body.appendChild(toast);
+        }
+        toast.textContent = text;
+        toast.className = "toast show " + (cls || "");
+        if (toastTimer) clearTimeout(toastTimer);
+        toastTimer = setTimeout(() => {
+            toast.className = "toast " + (cls || "");
+        }, 2400);
+    }
+
+    function escape(s) {
+        return String(s == null ? "" : s)
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;")
+            .replace(/"/g, "&quot;")
+            .replace(/'/g, "&#39;");
+    }
+
+    // --- Hello ----------------------------------------------------------
+    // Fusion injects adsk.fusionSendData asynchronously after DOMContentLoaded.
+    // Poll until the bridge is ready before firing paletteReady, so the initial
+    // scan happens automatically without requiring a manual Refresh click.
+
+    function _sendWhenReady(action, payload, maxMs) {
+        const deadline = Date.now() + (maxMs || 5000);
+        function attempt() {
+            if (typeof adsk !== "undefined" && adsk.fusionSendData) {
+                adsk.fusionSendData(action, JSON.stringify(payload || {}));
+                return;
+            }
+            if (Date.now() < deadline) {
+                setTimeout(attempt, 100);
+            }
+        }
+        attempt();
+    }
+
+    document.addEventListener("DOMContentLoaded", () => {
+        state.loaded = true;
+        _sendWhenReady(JS_TO_PY.paletteReady, {});
+    });
+})();
