@@ -3,8 +3,9 @@
 ## Current Status
 
 **Working on:** v1 polish backlog.
-**Version:** 0.1.7 released — backlog #5, #8 shipped. Previous: 0.1.6 (backlog #1, #2, #3, #9, #10).
-**Next step:** Pick next backlog item (see v1 Polish Backlog below). In-session: backlog #4 done (native Fusion constraint icons); backlog #6, #7, #12 done (inline dimension edit, canvas Find/highlight, entity readout).
+**Version:** 0.2.3 (manifest + commit must always match) — polygon fixes, offset dblclick fix, chip→select+filter.
+**Next step:** Pick next backlog item (see v1 Polish Backlog below).
+**Convention:** Every commit that bumps the version string must also update `ConstraintLens/ConstraintLens.manifest` `"version"` field so Fusion shows the correct version.
 **Blocked by:** Nothing.
 
 ### What's verified working (PC tests 1–5 + v0.1.6 session)
