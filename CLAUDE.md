@@ -3,7 +3,7 @@
 ## Current Status
 
 **Working on:** v1 polish backlog.
-**Version:** 0.1.6 released — backlog #1, #2, #3, #9, #10 shipped. Previous: 0.1.5 (`ConstraintLens-v0.1.5.zip` on GitHub Releases).
+**Version:** 0.1.7 released — backlog #5, #8 shipped. Previous: 0.1.6 (backlog #1, #2, #3, #9, #10).
 **Next step:** Pick next backlog item (see v1 Polish Backlog below).
 **Blocked by:** Nothing.
 
@@ -24,6 +24,8 @@
 - Filter bar narrows rows by label or constraint type (case-insensitive, client-side); section headers show filtered count. ✓ backlog #3
 - OffsetConstraint label normalised: `Offset (1→1 curves, 30 mm)` style. ✓ backlog #9
 - Dimension entity chips show friendly names ("Line 2 → Line 3") for Angular, Diameter, Radial and other type-specific-accessor subtypes. ✓ backlog #10
+- Bulk delete: checkboxes on deletable rows, "Delete N" + "Clear" buttons in toolbar, confirm dialog, Python loops deletions. Single × button removed. ✓ backlog #5
+- Invisible entity chips (e.g. hidden spline-offset control geometry) rendered dimmed with dashed border and "hidden" badge. ✓ backlog #8
 
 ### What was fixed in 0.1.5 (verified PC test 5)
 - **SketchOffsetCurvesDimension matching, hardened** — `_find_offset_constraint_for_dim` stacks four strategies because `OffsetConstraint.distance` returns None on the January 2026 build: (1) parameter entityToken, (2) parameter name, (3) positional pairing, (4) single-constraint fallback. Once matched, constraint's `parentCurves` + `childCurves` become the dimension's chips.
@@ -108,10 +110,10 @@ tests/
 2. ~~"Show underconstrained" button~~ — **DONE ✓** "Show u/c" button in toolbar; calls `executeTextCommand("Sketch.ShowUnderconstrained")`; result surfaced as toast.
 3. ~~Filter / search by constraint type~~ — **DONE ✓** Filter bar below toolbar; client-side filtering by label/kind; section headers show `(N of M)` when active.
 4. Constraint icons matching Fusion's own glyph set.
-5. Bulk delete with confirmation.
+5. ~~Bulk delete with confirmation.~~ **DONE ✓** Checkboxes on deletable rows; "Delete N" + "Clear" toolbar buttons; Ctrl+Z note in confirm dialog; single × button removed.
 6. Inline editable dimension expression.
 7. **Sketch-→-palette reverse lookup** — user picks an entity on the canvas, ConstraintLens scrolls to / highlights every row that references it. Lets the user start from the geometry rather than the list.
-8. **Mark invisible / unselectable entities** — Fusion creates internal control geometry for some operations (e.g. spline offsets create a hidden line that participates in a tangent constraint but isn't drawn on the canvas). Detect via `entity.isVisible` (or class-based heuristic) and badge the row / chip so users know the row references geometry they can't click.
+8. ~~**Mark invisible / unselectable entities**~~ — **DONE ✓** `chip_for()` checks `entity.isVisible`; invisible chips rendered dimmed + dashed border + "hidden" badge. Note: clicking a row still selects/reveals the hidden entity on canvas — this is Fusion's native behaviour.
 9. ~~**Normalize OffsetConstraint label**~~ — **DONE ✓** Label is now `Offset (1→1 curves, 30 mm)` style, pulling expression from the matched SketchOffsetCurvesDimension.
 10. ~~**Dimension entity chip labels — show "Line 2" not "SketchLine"**~~ — **DONE ✓** `_DIM_ACCESSORS` map added to `dispatch.py`; Angular/Diameter/Radial and others now use type-specific accessors with `entityOne`/`entityTwo` fallback.
 11. ~~**Verify fully-constrained green status**~~ — **VERIFIED PC test (session 5+).** Banner turns green and reads "— fully constrained" correctly.

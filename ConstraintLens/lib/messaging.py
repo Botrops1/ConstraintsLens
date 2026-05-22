@@ -12,6 +12,7 @@ ACTION_SELECT_ENTITIES = "selectEntities"
 ACTION_SELECT_CONSTRAINT = "selectConstraint"
 ACTION_DELETE_CONSTRAINT = "deleteConstraint"
 ACTION_SHOW_UNDERCONSTRAINED = "showUnderconstrained"
+ACTION_BULK_DELETE = "bulkDelete"
 
 PY_ACTION_DATA = "data"
 PY_ACTION_NO_ACTIVE_SKETCH = "noActiveSketch"

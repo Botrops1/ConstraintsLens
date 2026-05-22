@@ -67,8 +67,14 @@ class EntityLabeler:
             return "SketchEntity"
 
     def chip_for(self, entity) -> dict:
+        invisible = False
+        try:
+            invisible = not bool(entity.isVisible)
+        except Exception:
+            pass
         return {
             "token": _safe_token(entity) or "",
             "kind": self.kind_for(entity),
             "label": self.label_for(entity),
+            "invisible": invisible,
         }

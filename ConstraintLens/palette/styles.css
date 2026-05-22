@@ -253,3 +253,37 @@ main {
 .filter-bar input[type="search"]::placeholder {
     color: var(--fg-muted);
 }
+
+/* --- Bulk-select checkboxes ----------------------------------------- */
+
+.row-check {
+    flex-shrink: 0;
+    width: 16px;
+    height: 16px;
+    margin-top: 1px;
+    accent-color: var(--accent);
+    cursor: pointer;
+}
+
+/* Spacer keeps alignment for rows that have no checkbox (pseudo/non-deletable). */
+.row-check-pad {
+    flex-shrink: 0;
+    width: 16px;
+}
+
+/* --- Invisible entity chips (#8) ------------------------------------ */
+
+.chip.invisible {
+    opacity: 0.45;
+    border-style: dashed;
+}
+
+.chip-hidden {
+    font-size: 8px;
+    margin-left: 3px;
+    padding: 0 3px;
+    background: #4a2c2c;
+    color: var(--error);
+    border-radius: 3px;
+    vertical-align: middle;
+}

@@ -13,6 +13,7 @@
         selectConstraint: "selectConstraint",
         deleteConstraint: "deleteConstraint",
         showUnderconstrained: "showUnderconstrained",
+        bulkDelete: "bulkDelete",
     };
 
     const PY_TO_JS = {
@@ -55,6 +56,7 @@
         snapshot: null,
         loaded: false,
         filter: "",
+        selected: new Set(),
     };
 
     const els = {
@@ -62,6 +64,8 @@
         status: document.getElementById("status"),
         refresh: document.getElementById("refresh"),
         highlightUnder: document.getElementById("highlight-under"),
+        bulkDelete: document.getElementById("bulk-delete"),
+        clearSelection: document.getElementById("clear-selection"),
         filter: document.getElementById("filter"),
     };
 
@@ -79,6 +83,20 @@
     els.highlightUnder.addEventListener("click", () => send(JS_TO_PY.showUnderconstrained, {}));
     els.filter.addEventListener("input", () => {
         state.filter = els.filter.value.trim().toLowerCase();
+        renderSnapshot();
+    });
+    els.bulkDelete.addEventListener("click", () => {
+        const tokens = [...state.selected];
+        if (tokens.length === 0) return;
+        const n = tokens.length;
+        if (!confirm(`Delete ${n} constraint${n !== 1 ? "s" : ""}?\n(Ctrl+Z in Fusion can undo sketch operations.)`)) return;
+        send(JS_TO_PY.bulkDelete, { tokens });
+        state.selected.clear();
+        updateBulkDeleteButton();
+    });
+    els.clearSelection.addEventListener("click", () => {
+        state.selected.clear();
+        updateBulkDeleteButton();
         renderSnapshot();
     });
 
@@ -104,14 +122,26 @@
         },
     };
 
+    function updateBulkDeleteButton() {
+        const n = state.selected.size;
+        const show = n > 0;
+        els.bulkDelete.style.display = show ? "" : "none";
+        els.clearSelection.style.display = show ? "" : "none";
+        if (show) els.bulkDelete.textContent = `Delete ${n}`;
+    }
+
     function onData(payload) {
         state.snapshot = payload;
+        state.selected.clear();
+        updateBulkDeleteButton();
         els.highlightUnder.disabled = false;
         renderSnapshot();
     }
 
     function onNoActiveSketch(payload) {
         state.snapshot = null;
+        state.selected.clear();
+        updateBulkDeleteButton();
         els.highlightUnder.disabled = true;
         setStatus(payload.reason || "No active sketch.", "warn");
         els.root.innerHTML = `<div class="empty">${escape(payload.reason || "Open a sketch for edit to see its constraints.")}</div>`;
@@ -213,16 +243,20 @@
             (row.entities || []).map(e => e.token || "").filter(t => t)
         );
 
+        const canCheck = !row.isPseudo && row.isDeletable && row.token;
+        const checked = canCheck && state.selected.has(row.token) ? " checked" : "";
+        const checkboxHTML = canCheck
+            ? `<input type="checkbox" class="row-check" data-token="${escape(row.token)}"${checked}>`
+            : `<span class="row-check-pad"></span>`;
+
         const selectConstraintBtn = row.isPseudo
             ? ""
             : `<button class="btn" data-action="selectConstraint" data-token="${escape(row.token || "")}" title="Select the constraint object itself">⌖</button>`;
 
-        // Pseudo rows (implicit joins) cannot be deleted — show a lock indicator
-        // with an explanatory tooltip instead of a disabled × button.
-        const deleteBtn = row.isPseudo
-            ? `<span class="row-lock" title="Endpoint joins are shared sketch points and cannot be individually deleted">⊘</span>`
-            : `<button class="btn danger" data-action="deleteConstraint"
-                       data-token="${escape(row.token || "")}"${!row.isDeletable ? ' disabled title="This constraint cannot be deleted"' : ""}>×</button>`;
+        // Pseudo rows (implicit joins) can't be checked or deleted individually.
+        const lockBtn = row.isPseudo
+            ? `<span class="row-lock" title="Endpoint joins are shared sketch points and cannot be deleted">⊘</span>`
+            : "";
 
         return `
             <div class="row${pseudoClass}${errorClass}"
@@ -230,6 +264,7 @@
                  data-entity-tokens="${escape(entityTokensJson)}"
                  data-action="selectEntities"
                  role="button">
+                ${checkboxHTML}
                 <div class="row-glyph">${escape(glyph)}</div>
                 <div class="row-body">
                     <div class="row-label">${escape(row.label || "")}</div>
@@ -242,30 +277,41 @@
                 </div>
                 <div class="row-actions">
                     ${selectConstraintBtn}
-                    ${deleteBtn}
+                    ${lockBtn}
                 </div>
             </div>
         `;
     }
 
     function chipHTML(chip) {
+        if (chip.invisible) {
+            return `<span class="chip invisible" title="Not visible on canvas">${escape(chip.label || chip.kind || "?")} <span class="chip-hidden">hidden</span></span>`;
+        }
         return `<span class="chip">${escape(chip.label || chip.kind || "?")}</span>`;
     }
 
-    // --- Delegated click handling ---------------------------------------
+    // --- Delegated event handling ---------------------------------------
+
+    // Checkbox changes update selection state independently of row clicks.
+    els.root.addEventListener("change", (evt) => {
+        if (!evt.target.matches(".row-check")) return;
+        const token = evt.target.getAttribute("data-token") || "";
+        if (!token) return;
+        if (evt.target.checked) {
+            state.selected.add(token);
+        } else {
+            state.selected.delete(token);
+        }
+        updateBulkDeleteButton();
+    });
 
     els.root.addEventListener("click", (evt) => {
+        // Checkbox clicks are handled by the change listener above.
+        if (evt.target.matches(".row-check")) return;
+
         const actionEl = evt.target.closest("[data-action]");
         if (!actionEl) return;
         const action = actionEl.getAttribute("data-action");
-
-        if (action === "deleteConstraint") {
-            evt.stopPropagation();
-            const token = actionEl.getAttribute("data-token") || "";
-            if (!token) return;
-            send(JS_TO_PY.deleteConstraint, { token });
-            return;
-        }
 
         if (action === "selectConstraint") {
             evt.stopPropagation();

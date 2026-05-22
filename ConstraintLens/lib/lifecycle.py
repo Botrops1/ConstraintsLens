@@ -208,6 +208,10 @@ def _on_palette_message(action: str, raw: str) -> None:
         _handle_show_underconstrained(app)
         return
 
+    if action == messaging.ACTION_BULK_DELETE:
+        _handle_bulk_delete(app, payload)
+        return
+
     # Unknown action — log and ignore (forward-compat per SPEC.md section 7).
 
 
@@ -300,6 +304,29 @@ def _handle_delete(app: adsk.core.Application, payload: dict) -> None:
         "action": messaging.ACTION_DELETE_CONSTRAINT,
         "ok": result.ok,
         "message": result.message,
+    })
+    _publish_active(app)
+
+
+def _handle_bulk_delete(app: adsk.core.Application, payload: dict) -> None:
+    tokens: list[str] = payload.get("tokens") or []
+    if not tokens:
+        return
+    ok_count = 0
+    fail_count = 0
+    for tok in tokens:
+        result = actions.delete_constraint(app, tok)
+        if result.ok:
+            ok_count += 1
+        else:
+            fail_count += 1
+    n = ok_count + fail_count
+    msg = (f"Deleted {ok_count} of {n} constraints." if fail_count
+           else f"Deleted {ok_count} constraint{'s' if ok_count != 1 else ''}.")
+    messaging.send(_palette, messaging.PY_ACTION_RESULT, {
+        "action": messaging.ACTION_BULK_DELETE,
+        "ok": fail_count == 0,
+        "message": msg,
     })
     _publish_active(app)
 
