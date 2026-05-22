@@ -131,6 +131,7 @@
         filter: "",
         selected: new Set(),
         highlights: new Set(),   // rowKeys highlighted by Find (#7)
+        collapsed: new Set(),    // section ids collapsed by user (#14)
     };
 
     const els = {
@@ -336,36 +337,32 @@
             }
         }
 
-        if (c.length) {
-            const label = q
-                ? `Geometric constraints (${c.length} of ${allC.length})`
-                : `Geometric constraints (${allC.length})`;
-            parts.push(`<div class="section-header">${label}</div>`);
-            for (const row of c) parts.push(rowHTML(row));
-        }
-        if (d.length) {
-            const label = q
-                ? `Dimensions (${d.length} of ${allD.length})`
-                : `Dimensions (${allD.length})`;
-            parts.push(`<div class="section-header">${label}</div>`);
-            for (const row of d) parts.push(rowHTML(row));
-        }
-        if (p.length) {
-            const label = q
-                ? `Pattern constraints (${p.length} of ${allP.length})`
-                : `Pattern constraints (${allP.length})`;
-            parts.push(`<div class="section-header">${label}</div>`);
-            for (const row of p) parts.push(rowHTML(row));
-        }
-        if (j.length) {
-            const label = q
-                ? `Endpoint joins (${j.length} of ${allJ.length})`
-                : `Endpoint joins (${allJ.length})`;
-            parts.push(`<div class="section-header">${label}</div>`);
-            for (const row of j) parts.push(rowHTML(row));
-        }
+        _renderSection(parts, "constraints", "Geometric constraints", c, allC.length, q);
+        _renderSection(parts, "dimensions",  "Dimensions",            d, allD.length, q);
+        _renderSection(parts, "patterns",    "Pattern constraints",   p, allP.length, q);
+        _renderSection(parts, "joins",       "Endpoint joins",        j, allJ.length, q);
 
         els.root.innerHTML = parts.join("");
+    }
+
+    function _renderSection(parts, id, title, rows, totalCount, q) {
+        if (rows.length === 0) return;
+        const collapsed = state.collapsed.has(id);
+        const chevron = collapsed ? "▸" : "▾";
+        const countLabel = q
+            ? `${rows.length} of ${totalCount}`
+            : `${totalCount}`;
+        parts.push(
+            `<div class="section-header" data-section="${id}" role="button" title="Click to collapse/expand">` +
+            `<span class="section-title">${title} (${countLabel})</span>` +
+            `<span class="section-chevron">${chevron}</span>` +
+            `</div>`
+        );
+        if (!collapsed) {
+            parts.push(`<div class="section-rows">`);
+            for (const row of rows) parts.push(rowHTML(row));
+            parts.push(`</div>`);
+        }
     }
 
     // Native PNG load failure → swap in the SVG from TYPE_ICONS.
@@ -452,10 +449,11 @@
     }
 
     function chipHTML(chip) {
+        const lbl = chip.label || chip.kind || "?";
         if (chip.invisible) {
-            return `<span class="chip invisible" title="Not visible on canvas">${escape(chip.label || chip.kind || "?")} <span class="chip-hidden">hidden</span></span>`;
+            return `<span class="chip invisible" data-label="${escape(lbl)}" title="Not visible on canvas — click to filter">${escape(lbl)} <span class="chip-hidden">hidden</span></span>`;
         }
-        return `<span class="chip">${escape(chip.label || chip.kind || "?")}</span>`;
+        return `<span class="chip" data-label="${escape(lbl)}" title="Click to filter by this entity">${escape(lbl)}</span>`;
     }
 
     // --- Delegated event handling ---------------------------------------
@@ -476,6 +474,32 @@
     els.root.addEventListener("click", (evt) => {
         // Checkbox clicks are handled by the change listener above.
         if (evt.target.matches(".row-check")) return;
+
+        // Section header click (#14) — toggle collapse.
+        const header = evt.target.closest(".section-header[data-section]");
+        if (header) {
+            const id = header.getAttribute("data-section");
+            if (state.collapsed.has(id)) {
+                state.collapsed.delete(id);
+            } else {
+                state.collapsed.add(id);
+            }
+            renderSnapshot();
+            return;
+        }
+
+        // Chip click (#16) — populate filter with the chip label.
+        const chip = evt.target.closest(".chip");
+        if (chip && els.root.contains(chip)) {
+            evt.stopPropagation();
+            const label = chip.getAttribute("data-label") || "";
+            if (label) {
+                state.filter = label.toLowerCase();
+                els.filter.value = label;
+                renderSnapshot();
+            }
+            return;
+        }
 
         const actionEl = evt.target.closest("[data-action]");
         if (!actionEl) return;

@@ -82,6 +82,8 @@ main {
 }
 
 .section-header {
+    display: flex;
+    align-items: center;
     padding: 6px 10px;
     background: var(--bg-elev);
     color: var(--fg-muted);
@@ -93,6 +95,16 @@ main {
     position: sticky;
     top: 0;
     z-index: 1;
+    cursor: pointer;
+    user-select: none;
+}
+.section-header:hover { color: var(--fg); }
+
+.section-title { flex: 1; }
+
+.section-chevron {
+    font-size: 9px;
+    opacity: 0.7;
 }
 
 .row {
@@ -169,7 +181,9 @@ main {
     border: 1px solid var(--chip-border);
     border-radius: 9px;
     color: var(--fg);
+    cursor: pointer;
 }
+.chip:hover { border-color: var(--accent); }
 
 .row-actions {
     display: flex;
