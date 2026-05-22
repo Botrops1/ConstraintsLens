@@ -2,38 +2,45 @@
 
 ## Current Status
 
-**Working on:** v1 polish backlog.
-**Version:** 0.2.8 (manifest + commit must always match) — all backlog items #13–#21 done and verified.
-**Next step:** Pick next backlog item or plan v1 release.
+**Working on:** v1.0 release preparation.
+**Version:** 1.0.0 (manifest + commit must always match) — entire v1 Polish Backlog (#1–#21) complete.
+**Next step:** PC test v0.2.12 end-to-end; tag v1.0 and merge to main.
 **Convention:** Every commit that bumps the version string must also update `ConstraintLens/ConstraintLens.manifest` `"version"` field so Fusion shows the correct version.
 **Blocked by:** Nothing.
 
-### What's verified working (PC tests 1–5 + v0.1.6 session)
+### What's verified working (all PC tests + session history)
 - Add-in loads, palette docks, populates without Refresh click.
-- Geometric constraints list with click-to-select, ⌖ select-constraint, × delete + auto-refresh.
-- Dimensions list (Angular, Linear, Diameter, etc.) with parameter expression.
-- Implicit endpoint joins as pseudo-rows with implicit badge AND ⊘ lock icon + tooltip (0.1.3).
-- Tangent spline+line row highlights both objects on click (0.1.3 — token-based selection).
-- OffsetConstraint row lists curve chips (0.1.4).
-- SketchOffsetCurvesDimension row lists curve chips AND highlights on click (0.1.5). ✓ PC test 5
-- Sketch status banner (name, component, fully/under-constrained).
+- Geometric constraints list with click-to-select (row body) and select-constraint (icon glyph click).
+- Dimensions list (Angular, Linear, Diameter, etc.) with parameter expression in accent color.
+- Inline dimension expression edit via pencil icon; Enter commits, Esc cancels.
+- Double-click row → opens native Fusion edit dialog (all dimension types via `SketchEditDimensionCmdDef`; Offset/Pattern via dedicated command IDs).
+- Implicit endpoint joins as pseudo-rows with implicit badge AND ⊘ lock icon.
+- Tangent spline+line row highlights both objects on click (token-based selection).
+- OffsetConstraint row lists curve chips; label: `Offset (1→1 curves, 30 mm)`.
+- SketchOffsetCurvesDimension row lists curve chips; double-click → offset edit dialog.
+- Sketch status banner (name on own row, fully/under-constrained state with color).
 - M-1 defensive guard (MidPoint accessor) — both rows render; no crash.
-- OffsetConstraint ACCESSOR error fixed in 0.1.2.
-- Auto-load fixed in 0.1.2 (palette populated without Refresh click).
-- Button relocated to `SketchConstraintsPanel` (Sketch tab → Constraints panel). ✓ backlog #1
-- "Show u/c" button highlights underconstrained entities on canvas via `executeTextCommand("Sketch.ShowUnderconstrained")`; shows result string as toast. ✓ backlog #2
-- Filter bar narrows rows by label or constraint type (case-insensitive, client-side); section headers show filtered count. ✓ backlog #3
-- OffsetConstraint label normalised: `Offset (1→1 curves, 30 mm)` style. ✓ backlog #9
-- Dimension entity chips show friendly names ("Line 2 → Line 3") for Angular, Diameter, Radial and other type-specific-accessor subtypes. ✓ backlog #10
-- Bulk delete: checkboxes on deletable rows, "Delete N" + "Clear" buttons in toolbar, confirm dialog, Python loops deletions. Single × button removed. ✓ backlog #5
-- Invisible entity chips (e.g. hidden spline-offset control geometry) rendered dimmed with dashed border and "hidden" badge. ✓ backlog #8
-
-### What was fixed in 0.1.5 (verified PC test 5)
-- **SketchOffsetCurvesDimension matching, hardened** — `_find_offset_constraint_for_dim` stacks four strategies because `OffsetConstraint.distance` returns None on the January 2026 build: (1) parameter entityToken, (2) parameter name, (3) positional pairing, (4) single-constraint fallback. Once matched, constraint's `parentCurves` + `childCurves` become the dimension's chips.
+- Button in `SketchConstraintsPanel` (Sketch tab → Constraints panel).
+- "Show underconstraint elements" button — calls `executeTextCommand("Sketch.ShowUnderconstrained")`; result as toast.
+- Filter bar — client-side by label/kind/entity chips; section headers show `(N of M)`.
+- Find button — canvas selection → palette highlight (blue border + scroll); entity readout strip.
+- Chip click → sets filter AND selects entity on canvas.
+- Bulk delete — checkboxes, "Delete N" + "Clear" buttons, confirm dialog with Ctrl+Z note.
+- Collapsible sections — chevron toggle; state preserved across refreshes.
+- Invisible entity chips — dimmed + dashed border + "hidden" badge.
+- Native Fusion icons (dark variants) — constraints, patterns, polygon, dimensions; 24×24 px.
+- Circular/Rectangular pattern inline edit (count, spacing/angle via `ModelParameter.expression`).
+- Polygon in "Patterns and figures" section; center chip + line chips; fallback label if center inaccessible.
+- Filter matches entity chip labels (e.g. typing "Line 3" finds all constraints involving Line 3).
+- Find works for dimension rows (indexes `row.token` not just chip tokens).
+- GUI: sketch name on its own top row; buttons on separate second row with `flex-wrap`.
+- PolygonConstraint `lines` iterated via `_iter_curves_into_chips()` (SketchLineVector has no `.count`).
 
 ### Known sub-issues to keep on radar
-- Offset-of-spline creates internal control geometry that Fusion doesn't render. User reports a tangent constraint on a line that isn't visible on the canvas. The row still appears in ConstraintLens but the line can't be selected by the user. See backlog #8.
-- `OffsetConstraint.distance` returns None in the January 2026 build. The label-only consequence is now fully resolved via the matched dimension's parameter expression (backlog #9 fix).
+- Offset-of-spline creates internal control geometry that Fusion doesn't render. The row still appears in ConstraintLens with a dimmed "hidden" chip; clicking the row still selects the hidden entity — Fusion's native behaviour. (backlog #8 resolved)
+- `OffsetConstraint.distance` returns None in the January 2026 build. Fully mitigated — label uses expression from the matched `SketchOffsetCurvesDimension` parameter. (backlog #9 resolved)
+- `PolygonConstraint.centerSketchPoint` returns None in the January 2026 build. Mitigated — fallback chain tries `center`/`centerPoint`; if all fail, label is `"Polygon (N sides)"` with no error shown.
+- `SketchLineVector` (returned by `PolygonConstraint.lines`) has no `.count` property. Must use direct iteration.
 
 ---
 

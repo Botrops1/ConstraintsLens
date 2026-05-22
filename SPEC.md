@@ -26,14 +26,14 @@ Fusion 360's desktop sketch environment surfaces constraints only as tiny on-can
 - Distributed as a zipped add-in folder + README install snippet for `~/Autodesk/Autodesk Fusion 360/API/AddIns/`.
 
 ### Deferred (v1 polish, v2 premium — not in MVP)
-- Filter / group / search controls (type, entity, redundant heuristic).
-- Bulk delete with confirmation prompt.
+- ~~Filter / group / search controls (type, entity, redundant heuristic).~~ **✓ Shipped in v1** — filter bar with label/kind/entity chip matching; section headers show `(N of M)`.
+- ~~Bulk delete with confirmation prompt.~~ **✓ Shipped in v1** — checkboxes, "Delete N" button, confirm dialog.
 - Hover-preview highlight via `CustomGraphics` overlay.
 - Plugin-level undo stack (snapshot constraint set before destructive ops).
 - Joint / AsBuiltJoint list panel.
-- Editable dimension expression inline.
+- ~~Editable dimension expression inline.~~ **✓ Shipped in v1** — pencil icon, inline `<input>`, Enter commits via `ModelParameter.expression`.
 - Toggle for `sketch.areConstraintsShown` (hide native glyphs).
-- "Show underconstrained" button wrapping `executeTextCommand("Sketch.ShowUnderconstrained")`.
+- ~~"Show underconstrained" button wrapping `executeTextCommand("Sketch.ShowUnderconstrained")`.~~ **✓ Shipped in v1** — "Show underconstraint elements" button in toolbar; result shown as toast.
 - `AssemblyConstraint` (Constrain Components, January 2026 preview API) — **explicitly deferred until Autodesk drops the preview disclaimer.**
 - App Store submission with installer (.msi / .pkg), screenshots, help URL.
 - Multi-sketch / document-wide constraint browser.
@@ -154,9 +154,9 @@ Every `GeometricConstraint` subtype listed below is exhaustively covered. The di
 | 13 | `adsk::fusion::MidPointConstraint` | `MidPointConstraint` | `.point` (SketchPoint), `.midPointCurve` (SketchCurve) | `Midpoint — {point} mid {curve}` | **Known bug** (doc 2): `.point` raises for midpoint-to-midpoint configurations. **Defensive pattern: see section 9 landmine M-1.** |
 | 14 | `adsk::fusion::SymmetryConstraint` | `SymmetryConstraint` | `.entityOne`, `.entityTwo` (SketchCurve or SketchPoint), `.symmetryLine` (SketchLine) | `Symmetric — {e1} ↔ {e2} about {symLine}` | none |
 | 15 | `adsk::fusion::OffsetConstraint` | `OffsetConstraint` | `.parentCurves` (ObjectCollection), `.childCurves` (ObjectCollection), `.distance` (ModelParameter) | `Offset {n}→{m} curves @ {distance.expression}` | Collections, not single entities — render counts in the label, expand only on row click. |
-| 16 | `adsk::fusion::PolygonConstraint` | `PolygonConstraint` | `.lines` (ObjectCollection of SketchLine), `.centerSketchPoint` (SketchPoint) | `Polygon ({n} sides) about {center}` | Inscribed vs circumscribed is not exposed via API; do not attempt to display it. |
-| 17 | `adsk::fusion::CircularPatternConstraint` | `CircularPatternConstraint` | **No usable accessors** — read-only stub (doc 2, confirmed by Brian Ekins on Autodesk forum). | `Circular pattern (read-only)` | Only `deleteMe()` works. Disable "Select entities" button for this row; "Delete" remains enabled. |
-| 18 | `adsk::fusion::RectangularPatternConstraint` | `RectangularPatternConstraint` | **No usable accessors** — read-only stub. | `Rectangular pattern (read-only)` | Same handling as #17. |
+| 16 | `adsk::fusion::PolygonConstraint` | `PolygonConstraint` | `.lines` (**`SketchLineVector`**, not `ObjectCollection` — use `len()` + iteration, no `.count`), `.centerSketchPoint` (SketchPoint) | `Polygon ({n} sides) about {center}` | Inscribed vs circumscribed is not exposed via API; do not attempt to display it. **Jan 2026 bug:** `.centerSketchPoint` returns `None`; use fallback chain: `centerSketchPoint` → `center` → `centerPoint`. If all fail, label degrades to `"Polygon (N sides)"` with no error shown. |
+| 17 | `adsk::fusion::CircularPatternConstraint` | `CircularPatternConstraint` | **No geometry accessors** — entity selection is not available (read-only stub, confirmed by Brian Ekins on Autodesk forum). Pattern parameters ARE accessible: `.quantity` (count) and `.totalAngle` (angle) are `ModelParameter` objects; read/write via `.expression`. | `Circular pattern` | `deleteMe()` works. Geometry "Select" is disabled. Count and angle are shown as inline-editable fields. |
+| 18 | `adsk::fusion::RectangularPatternConstraint` | `RectangularPatternConstraint` | **No geometry accessors** — entity selection not available. Pattern parameters ARE accessible: `.quantityOne`, `.quantityTwo` (counts), `.distanceOne`, `.distanceTwo` (spacings) are `ModelParameter` objects; read/write via `.expression`. | `Rectangular pattern` | Same geometry-selection limitation as #17. Count and spacing are shown as inline-editable fields. |
 | 19 | `adsk::fusion::LineOnPlanarSurfaceConstraint` | `LineOnPlanarSurfaceConstraint` | `.line` (SketchLine), `.planarSurface` (BRepFace or ConstructionPlane) | `Line on surface — {line}` | Surface may be external; same fallback as #9. |
 | 20 | `adsk::fusion::LineParallelToPlanarSurfaceConstraint` | `LineParallelToPlanarSurfaceConstraint` | `.line`, `.planarSurface` | `Line ∥ surface — {line}` | same |
 | 21 | `adsk::fusion::PerpendicularToSurfaceConstraint` | `PerpendicularToSurfaceConstraint` | `.line`, `.planarSurface` | `Line ⊥ surface — {line}` | same |
@@ -264,9 +264,13 @@ All payloads are JSON. Unknown action names are logged and ignored (forward-comp
 |---|---|---|---|
 | `paletteReady` | JS→PY | `{}` | Sent once on palette load. Python responds with a `data` push. |
 | `requestRefresh` | JS→PY | `{}` | Manual refresh button. Python re-scans and pushes `data`. |
-| `selectEntities` | JS→PY | `{"rowKey": "<token-or-pseudo-key>"}` | Selects the referenced entities in the viewport. |
-| `selectConstraint` | JS→PY | `{"token": "<entityToken>"}` | Selects the constraint object itself (not valid for pseudo rows — JS must not send these). |
+| `selectEntities` | JS→PY | `{"entityTokens": ["<token>", …]}` | Selects the referenced entities in the viewport by token list. |
+| `selectConstraint` | JS→PY | `{"token": "<entityToken>"}` | Selects the constraint object itself (not valid for pseudo rows — JS must not send these). Triggered by clicking the constraint icon glyph. |
 | `deleteConstraint` | JS→PY | `{"token": "<entityToken>"}` | Deletes via `constraint.deleteMe()`. Python pushes `data` after. |
+| `bulkDelete` | JS→PY | `{"tokens": ["<entityToken>", …]}` | Deletes all listed constraints in a single Python loop after JS-side confirmation dialog. Python pushes `data` after. |
+| `setExpression` | JS→PY | `{"token": "<entityToken>", "expression": "<string>"}` | Sets `ModelParameter.expression` for a dimension or pattern parameter. Python pushes `data` after. |
+| `openEditDialog` | JS→PY | `{"token": "<entityToken>", "kind": "<string>", "isDimension": true/false}` | Opens Fusion's native edit dialog for the row. Python resolves the appropriate command ID and calls `.execute()`. |
+| `getSelection` | JS→PY | `{}` | Reads `ui.activeSelections` and returns selected entity tokens to JS. Python responds with `selectionResult`. |
 | `openLogConsole` | JS→PY | `{}` | (Deferred) opens a Python-side debug log dump in a message box. |
 
 ### PY → JS actions
@@ -276,7 +280,8 @@ All payloads are JSON. Unknown action names are logged and ignored (forward-comp
 | `data` | PY→JS | see below | Full snapshot. Sent on `paletteReady`, `requestRefresh`, every subscribed event, and after any destructive action. |
 | `noActiveSketch` | PY→JS | `{"reason": "<string>"}` | Sent when `design.activeEditObject` is not a `Sketch`. Palette renders an empty state. |
 | `error` | PY→JS | `{"message": "<string>", "context": "<string>"}` | Recoverable errors only — fatal errors fall back to `ui.messageBox`. |
-| `actionResult` | PY→JS | `{"action": "deleteConstraint", "ok": true, "message": "<string>"}` | Optional toast; the subsequent `data` push is the authoritative source of truth. |
+| `actionResult` | PY→JS | `{"action": "<string>", "ok": true, "message": "<string>"}` | Optional toast for delete, set-expression, and open-dialog results. The subsequent `data` push is the authoritative source of truth. |
+| `selectionResult` | PY→JS | `{"tokens": ["<entityToken>", …], "label": "<string>"}` | Response to `getSelection`. JS uses token list to highlight matching rows and shows `label` in the entity readout strip. |
 
 ### `data` payload schema
 
