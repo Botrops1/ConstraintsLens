@@ -195,6 +195,7 @@ def _scan_dimensions(sketch: adsk.fusion.Sketch, lab: EntityLabeler) -> list[dic
             "parameterExpression": expr,
             "isDeletable": is_deletable,
             "isPseudo": False,
+            "isDimension": True,
             "errors": result.errors,
         })
     return rows

@@ -403,7 +403,8 @@
         const pseudoClass = row.isPseudo ? " pseudo" : "";
         const errorClass = hasErrors ? " has-errors" : "";
         const highlightClass = state.highlights.has(row.rowKey) ? " highlighted" : "";
-        const dblclickTitle = _DBLCLICK_KINDS && _DBLCLICK_KINDS.has(row.kind)
+        const isDimension = !!row.isDimension;
+        const dblclickTitle = (_DBLCLICK_KINDS.has(row.kind) || isDimension)
             ? ` title="Double-click to open edit dialog"` : ``;
         const badges = [];
         if (row.isPseudo) badges.push(`<span class="badge implicit">implicit</span>`);
@@ -459,6 +460,7 @@
                  data-kind="${escape(row.kind || "")}"
                  data-entity-tokens="${escape(entityTokensJson)}"
                  data-action="selectEntities"
+                 ${isDimension ? 'data-is-dimension="1"' : ""}
                  role="button"${dblclickTitle}>
                 ${checkboxHTML}
                 <div class="row-glyph"${glyphAttrs}>${iconImg}</div>
@@ -636,9 +638,10 @@
         const row = evt.target.closest(".row[data-kind]");
         if (!row) return;
         const kind = row.getAttribute("data-kind") || "";
-        if (!_DBLCLICK_KINDS.has(kind)) return;
+        const isDimension = row.hasAttribute("data-is-dimension");
+        if (!_DBLCLICK_KINDS.has(kind) && !isDimension) return;
         const rowKey = row.getAttribute("data-row-key") || "";
-        send(JS_TO_PY.openEditDialog, { kind, rowKey });
+        send(JS_TO_PY.openEditDialog, { kind, rowKey, isDimension });
     });
 
     // --- Helpers ---------------------------------------------------------

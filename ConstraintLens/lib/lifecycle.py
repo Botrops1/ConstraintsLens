@@ -479,7 +479,11 @@ _EDIT_DIALOG_COMMANDS: dict[str, str] = {
 
 def _handle_open_edit_dialog(app: adsk.core.Application, payload: dict) -> None:
     kind = payload.get("kind") or ""
-    cmd_id = _EDIT_DIALOG_COMMANDS.get(kind)
+    # Dimensions all share one edit command regardless of sub-type.
+    if payload.get("isDimension"):
+        cmd_id = "SketchEditDimensionCmdDef"
+    else:
+        cmd_id = _EDIT_DIALOG_COMMANDS.get(kind)
     if not cmd_id:
         messaging.send(_palette, messaging.PY_ACTION_RESULT, {
             "action": messaging.ACTION_OPEN_EDIT_DIALOG,
