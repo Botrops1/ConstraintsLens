@@ -114,8 +114,9 @@ def _copy_native_icons(ui: adsk.core.UserInterface, addin_dir: str) -> None:
 
         for kind, folder_name in _ICON_MAP.items():
             dst = os.path.join(icons_dir, f"{kind}.png")
-            # Prefer 32×32 source (scales down to 24 cleanly); fall back to 16×16.
-            for size in ("32x32.png", "16x16.png"):
+            # Prefer dark-theme variants (white glyphs for our dark palette),
+            # 32×32 for clean downscale to 24; fall back through lighter/smaller.
+            for size in ("32x32-dark.png", "32x32.png", "16x16-dark.png", "16x16.png"):
                 src = os.path.join(base, folder_name, size)
                 try:
                     shutil.copy2(src, dst)
@@ -140,7 +141,7 @@ def _copy_dimension_icon(ui: adsk.core.UserInterface, sketch_base: str, icons_di
         folder = (cmd.resourceFolder or "").rstrip("/\\")
         if not os.path.isdir(folder):
             continue
-        for size in ("32x32.png", "16x16.png"):
+        for size in ("32x32-dark.png", "32x32.png", "16x16-dark.png", "16x16.png"):
             try:
                 shutil.copy2(os.path.join(folder, size), dst)
                 return
@@ -153,7 +154,7 @@ def _copy_dimension_icon(ui: adsk.core.UserInterface, sketch_base: str, icons_di
                 folder = os.path.join(sketch_base, entry)
                 if not os.path.isdir(folder):
                     continue
-                for size in ("32x32.png", "16x16.png"):
+                for size in ("32x32-dark.png", "32x32.png", "16x16-dark.png", "16x16.png"):
                     try:
                         shutil.copy2(os.path.join(folder, size), dst)
                         return
