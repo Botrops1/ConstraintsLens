@@ -111,12 +111,15 @@ def _copy_native_icons(ui: adsk.core.UserInterface, addin_dir: str) -> None:
         os.makedirs(icons_dir, exist_ok=True)
 
         for kind, folder_name in _ICON_MAP.items():
-            src = os.path.join(base, folder_name, "16x16.png")
             dst = os.path.join(icons_dir, f"{kind}.png")
-            try:
-                shutil.copy2(src, dst)
-            except Exception:
-                pass  # missing icon → JS onerror falls back to inline SVG
+            # Prefer 32×32 source (scales down to 24 cleanly); fall back to 16×16.
+            for size in ("32x32.png", "16x16.png"):
+                src = os.path.join(base, folder_name, size)
+                try:
+                    shutil.copy2(src, dst)
+                    break
+                except Exception:
+                    pass  # try next size; if all fail → JS onerror uses inline SVG
     except Exception:
         pass  # entire copy step is best-effort; SVG fallback covers all types
 

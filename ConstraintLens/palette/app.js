@@ -31,7 +31,7 @@
     // --- SVG icons, one per constraint type. --------------------------------
     // Inserted as raw HTML (not escaped); safe because these are hardcoded constants.
 
-    const _S = `<svg width="16" height="16" viewBox="0 0 16 16" fill="none">`;
+    const _S = `<svg width="24" height="24" viewBox="0 0 16 16" fill="none">`;
     const _E = `</svg>`;
     const _L = (x1,y1,x2,y2,w,extra="") =>
         `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="currentColor" stroke-width="${w}" stroke-linecap="round"${extra}/>`;
@@ -382,8 +382,8 @@
 
     function rowHTML(row) {
         const iconImg = TYPE_ICONS[row.kind]
-            ? `<img class="ci" src="icons/${row.kind}.png" data-k="${escape(row.kind)}" width="16" height="16" alt="">`
-            : `<span style="line-height:16px">·</span>`;
+            ? `<img class="ci" src="icons/${row.kind}.png" data-k="${escape(row.kind)}" width="24" height="24" alt="">`
+            : `<span style="line-height:24px">·</span>`;
         const glyphAttrs = (!row.isPseudo && row.token)
             ? ` data-action="selectConstraint" data-token="${escape(row.token || "")}" title="Select the constraint object itself"`
             : "";

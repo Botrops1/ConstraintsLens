@@ -121,8 +121,8 @@ main {
 .row.has-errors { border-left: 3px solid var(--warn); }
 
 .row-glyph {
-    width: 18px;
-    height: 18px;
+    width: 24px;
+    height: 24px;
     flex-shrink: 0;
     display: flex;
     align-items: center;
