@@ -298,7 +298,8 @@
     function matchesFilter(row, q) {
         if (!q) return true;
         return (row.label || "").toLowerCase().includes(q)
-            || (row.kind || "").toLowerCase().includes(q);
+            || (row.kind || "").toLowerCase().includes(q)
+            || (row.entities || []).some(e => (e.label || "").toLowerCase().includes(q));
     }
 
     // --- Rendering -------------------------------------------------------
@@ -341,7 +342,7 @@
 
         _renderSection(parts, "constraints", "Geometric constraints", c, allC.length, q);
         _renderSection(parts, "dimensions",  "Dimensions",            d, allD.length, q);
-        _renderSection(parts, "patterns",    "Pattern constraints",   p, allP.length, q);
+        _renderSection(parts, "patterns",    "Patterns and figures",  p, allP.length, q);
         _renderSection(parts, "joins",       "Endpoint joins",        j, allJ.length, q);
 
         els.root.innerHTML = parts.join("");
@@ -392,7 +393,7 @@
             ? ` title="Double-click to open edit dialog"` : ``;
         const badges = [];
         if (row.isPseudo) badges.push(`<span class="badge implicit">implicit</span>`);
-        if (hasErrors) badges.push(`<span class="badge error">accessor</span>`);
+        if (hasErrors) badges.push(`<span class="badge error" title="An entity property returned no data in this Fusion build. Some chips may be missing — row is still functional.">accessor</span>`);
         const errorsHTML = hasErrors
             ? `<div class="errors">${row.errors.map(escape).join("; ")}</div>`
             : "";
@@ -470,10 +471,11 @@
 
     function chipHTML(chip) {
         const lbl = chip.label || chip.kind || "?";
+        const tokAttr = chip.token ? ` data-token="${escape(chip.token)}"` : "";
         if (chip.invisible) {
-            return `<span class="chip invisible" data-label="${escape(lbl)}" title="Not visible on canvas — click to filter">${escape(lbl)} <span class="chip-hidden">hidden</span></span>`;
+            return `<span class="chip invisible" data-label="${escape(lbl)}"${tokAttr} title="Not visible on canvas — click to filter and select">${escape(lbl)} <span class="chip-hidden">hidden</span></span>`;
         }
-        return `<span class="chip" data-label="${escape(lbl)}" title="Click to filter by this entity">${escape(lbl)}</span>`;
+        return `<span class="chip" data-label="${escape(lbl)}"${tokAttr} title="Click to filter and select">${escape(lbl)}</span>`;
     }
 
     // --- Delegated event handling ---------------------------------------
@@ -508,15 +510,19 @@
             return;
         }
 
-        // Chip click (#16) — populate filter with the chip label.
+        // Chip click (#16) — filter by label and select entity on canvas.
         const chip = evt.target.closest(".chip");
         if (chip && els.root.contains(chip)) {
             evt.stopPropagation();
             const label = chip.getAttribute("data-label") || "";
+            const token = chip.getAttribute("data-token") || "";
             if (label) {
                 state.filter = label.toLowerCase();
                 els.filter.value = label;
                 renderSnapshot();
+            }
+            if (token) {
+                send(JS_TO_PY.selectEntities, { entityTokens: [token] });
             }
             return;
         }
@@ -607,7 +613,7 @@
     // Single-click still selects entities; the two preceding clicks on a
     // dblclick are harmless (they just re-select the same entities).
     const _DBLCLICK_KINDS = new Set([
-        "SketchOffsetCurvesDimension",
+        "Offset curves",
         "CircularPatternConstraint",
         "RectangularPatternConstraint",
     ]);

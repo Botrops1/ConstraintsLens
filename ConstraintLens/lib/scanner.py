@@ -18,7 +18,7 @@ def active_sketch(app: adsk.core.Application) -> adsk.fusion.Sketch | None:
     return adsk.fusion.Sketch.cast(design.activeEditObject)
 
 
-_PATTERN_KINDS = frozenset({"CircularPatternConstraint", "RectangularPatternConstraint"})
+_PATTERN_KINDS = frozenset({"CircularPatternConstraint", "RectangularPatternConstraint", "PolygonConstraint"})
 # OffsetConstraint is already shown as a Dimension (SketchOffsetCurvesDimension).
 # Pattern constraints get their own palette section.
 _GEOMETRIC_EXCLUDE = _PATTERN_KINDS | {"OffsetConstraint"}

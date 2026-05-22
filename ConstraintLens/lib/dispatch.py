@@ -244,13 +244,21 @@ def _b_offset(c, lab):
 
 def _b_polygon(c, lab):
     lines = _safe(lambda: c.lines)
-    center = _safe(lambda: c.centerSketchPoint)
-    n = lines.count if lines is not None else 0
-    return ScanResult(
-        f"Polygon ({n} sides) about {lab.label_for(center) if center else '<error>'}",
-        _chips(lab, center),
-        [] if center is not None else ["accessor unavailable: .centerSketchPoint"],
+    center = (
+        _safe(lambda: c.centerSketchPoint) or
+        _safe(lambda: c.center) or
+        _safe(lambda: c.centerPoint)
     )
+    chips: list[dict] = []
+    if center is not None:
+        chips.append(lab.chip_for(center))
+    n = _iter_curves_into_chips(lines, lab, chips)
+    label = (
+        f"Polygon ({n} sides) about {lab.label_for(center)}"
+        if center is not None
+        else f"Polygon ({n} sides)"
+    )
+    return ScanResult(label, chips, [])
 
 
 def _b_circular_pattern(c, lab):

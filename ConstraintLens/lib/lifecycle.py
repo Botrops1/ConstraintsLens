@@ -428,7 +428,7 @@ def _handle_show_underconstrained(app: adsk.core.Application) -> None:
 # commandDefinition IDs confirmed by tests/probe_patterns/probe_patterns.py section A.
 # Use commandDefinitions.itemById(id).execute() — executeTextCommand does not work for these.
 _EDIT_DIALOG_COMMANDS: dict[str, str] = {
-    "SketchOffsetCurvesDimension":  "OffsetSketchEdit",
+    "Offset curves":                "OffsetSketchEdit",
     "CircularPatternConstraint":    "SketchPatternCircularEdit",
     "RectangularPatternConstraint": "SketchRectangularPatternEdit",
 }
@@ -460,7 +460,7 @@ def _handle_open_edit_dialog(app: adsk.core.Application, payload: dict) -> None:
         entity = tokens.resolve(design, row_key)
         if entity is not None:
             # For offset dimensions, select the underlying OffsetConstraint.
-            if kind == "SketchOffsetCurvesDimension":
+            if kind == "Offset curves":
                 try:
                     dim = adsk.fusion.SketchOffsetCurvesDimension.cast(entity)
                     if dim and dim.offsetConstraint:
