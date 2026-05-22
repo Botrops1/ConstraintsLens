@@ -70,7 +70,7 @@ def run(context):
         # Vertical line; dimension distance from a point above it.
         l5 = lines.addByTwoPoints(p.create(0, 4, 0), p.create(0, 8, 0))
         pt5 = sk.sketchPoints.add(p.create(3, 6, 0))
-        dims.addOffsetDimension(pt5, l5, p.create(1.5, 6, 0))
+        dims.addOffsetDimension(l5, pt5, p.create(1.5, 6, 0))
 
         # --- 6. Distance between two lines ---------------------------------
         l6a = lines.addByTwoPoints(p.create(5, 4, 0), p.create(5, 8, 0))
