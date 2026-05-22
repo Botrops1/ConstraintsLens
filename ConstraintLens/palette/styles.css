@@ -129,6 +129,8 @@ main {
     justify-content: center;
     color: var(--fg-muted);
 }
+.row-glyph[data-action] { cursor: pointer; }
+.row-glyph[data-action]:hover { opacity: 0.7; }
 
 .row-body {
     flex: 1;

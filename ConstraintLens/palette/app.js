@@ -381,9 +381,12 @@
     }, true);
 
     function rowHTML(row) {
-        const icon = TYPE_ICONS[row.kind]
+        const iconImg = TYPE_ICONS[row.kind]
             ? `<img class="ci" src="icons/${row.kind}.png" data-k="${escape(row.kind)}" width="16" height="16" alt="">`
             : `<span style="line-height:16px">·</span>`;
+        const glyphAttrs = (!row.isPseudo && row.token)
+            ? ` data-action="selectConstraint" data-token="${escape(row.token || "")}" title="Select the constraint object itself"`
+            : "";
         const hasErrors = row.errors && row.errors.length > 0;
         const chips = (row.entities || []).map(chipHTML).join("");
         const pseudoClass = row.isPseudo ? " pseudo" : "";
@@ -432,9 +435,7 @@
             ? `<input type="checkbox" class="row-check" data-token="${escape(row.token)}"${checked}>`
             : `<span class="row-check-pad"></span>`;
 
-        const selectConstraintBtn = row.isPseudo
-            ? ""
-            : `<button class="btn" data-action="selectConstraint" data-token="${escape(row.token || "")}" title="Select the constraint object itself">⌖</button>`;
+        const selectConstraintBtn = "";
 
         // Pseudo rows (implicit joins) can't be checked or deleted individually.
         const lockBtn = row.isPseudo
@@ -449,7 +450,7 @@
                  data-action="selectEntities"
                  role="button"${dblclickTitle}>
                 ${checkboxHTML}
-                <div class="row-glyph">${icon}</div>
+                <div class="row-glyph"${glyphAttrs}>${iconImg}</div>
                 <div class="row-body">
                     <div class="row-label">${escape(row.label || "")}</div>
                     ${exprHTML}
