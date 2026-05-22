@@ -89,6 +89,8 @@ _ICON_MAP: dict[str, str] = {
     "ParallelConstraint":                    "Constraint_Parallel",
     "PerpendicularConstraint":               "Constraint_Perpendicular",
     "PolygonConstraint":                     "Constraint_Polygon",
+    "CircularPatternConstraint":             "pattern_circular",
+    "RectangularPatternConstraint":          "pattern_rectangular",
     "SymmetryConstraint":                    "Constraint_Symmetry",
     "TangentConstraint":                     "Constraint_Tangent",
     "LineOnPlanarSurfaceConstraint":         "Constraint_Fix",
