@@ -18,6 +18,12 @@ def active_sketch(app: adsk.core.Application) -> adsk.fusion.Sketch | None:
     return adsk.fusion.Sketch.cast(design.activeEditObject)
 
 
+_PATTERN_KINDS = frozenset({"CircularPatternConstraint", "RectangularPatternConstraint"})
+# OffsetConstraint is already shown as a Dimension (SketchOffsetCurvesDimension).
+# Pattern constraints get their own palette section.
+_GEOMETRIC_EXCLUDE = _PATTERN_KINDS | {"OffsetConstraint"}
+
+
 def build_payload(sketch: adsk.fusion.Sketch) -> dict:
     """Build the full data payload for the palette."""
     lab = EntityLabeler(sketch)
@@ -50,11 +56,28 @@ def build_payload(sketch: adsk.fusion.Sketch) -> dict:
         },
         "constraints": _scan_constraints(sketch, lab),
         "dimensions": _scan_dimensions(sketch, lab),
+        "patterns": _scan_patterns(sketch, lab),
         "implicitJoins": _scan_implicit_joins(sketch, lab),
     }
 
 
 def _scan_constraints(sketch: adsk.fusion.Sketch, lab: EntityLabeler) -> list[dict]:
+    """User-managed geometric constraints — offset and pattern constraints excluded."""
+    return _build_constraint_rows(sketch, lab, exclude=_GEOMETRIC_EXCLUDE)
+
+
+def _scan_patterns(sketch: adsk.fusion.Sketch, lab: EntityLabeler) -> list[dict]:
+    """Pattern constraints (CircularPattern, RectangularPattern) as a separate section."""
+    return _build_constraint_rows(sketch, lab, include=_PATTERN_KINDS)
+
+
+def _build_constraint_rows(
+    sketch: adsk.fusion.Sketch,
+    lab: EntityLabeler,
+    *,
+    exclude: frozenset[str] | None = None,
+    include: frozenset[str] | None = None,
+) -> list[dict]:
     rows: list[dict] = []
     gc = sketch.geometricConstraints
     for i in range(gc.count):
@@ -69,12 +92,16 @@ def _scan_constraints(sketch: adsk.fusion.Sketch, lab: EntityLabeler) -> list[di
             glyph = desc.glyph
             try:
                 result = desc.build(c, lab)
-                if desc.kind == "OffsetConstraint":
+                if kind == "OffsetConstraint":
                     result = dispatch.patch_offset_label(result, c, sketch)
             except Exception as exc:
                 result = dispatch.ScanResult(
-                    f"{desc.kind} (builder raised)", [], [f"builder raised: {exc}"]
+                    f"{kind} (builder raised)", [], [f"builder raised: {exc}"]
                 )
+        if include is not None and kind not in include:
+            continue
+        if exclude is not None and kind in exclude:
+            continue
         tok = token_of(c) or ""
         try:
             is_deletable = bool(c.isDeletable)

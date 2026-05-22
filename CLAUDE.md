@@ -4,7 +4,7 @@
 
 **Working on:** v1 polish backlog.
 **Version:** 0.1.7 released — backlog #5, #8 shipped. Previous: 0.1.6 (backlog #1, #2, #3, #9, #10).
-**Next step:** Pick next backlog item (see v1 Polish Backlog below).
+**Next step:** Pick next backlog item (see v1 Polish Backlog below). In-session: backlog #4 done (native Fusion constraint icons via palette/icons/ copy); add-in button icon added; OffsetConstraint removed from constraints section (shown only in Dimensions); pattern constraints moved to separate "Pattern constraints" section; backlog #13 added.
 **Blocked by:** Nothing.
 
 ### What's verified working (PC tests 1–5 + v0.1.6 session)
@@ -118,3 +118,6 @@ tests/
 10. ~~**Dimension entity chip labels — show "Line 2" not "SketchLine"**~~ — **DONE ✓** `_DIM_ACCESSORS` map added to `dispatch.py`; Angular/Diameter/Radial and others now use type-specific accessors with `entityOne`/`entityTwo` fallback.
 11. ~~**Verify fully-constrained green status**~~ — **VERIFIED PC test (session 5+).** Banner turns green and reads "— fully constrained" correctly.
 12. **Canvas-to-palette entity name lookup** — user clicks a sketch entity on the canvas, sees its ConstraintLens name (e.g. "Line 3") somewhere in the UI, then can type that name into the filter bar to find all rows that reference it. Complement to backlog #7 (reverse lookup that auto-scrolls); this simpler variant just exposes the name. Could be implemented as a hover tooltip on canvas selection events, a small "selected entity" readout in the palette toolbar, or by reacting to Fusion's `activeSelections` change event and displaying the resolved label.
+13. **Double-click to open edit dialog** — double-clicking an Offset dimension row should activate the Offset Curves edit dialog; double-clicking a CircularPattern or RectangularPattern constraint row should open the respective pattern edit dialog. Requires finding the correct `executeTextCommand` or `commandDefinition.execute()` call for each type, and distinguishing double-click from single-click in the JS event handler.
+14. **Collapsible sections** — each section header (Geometric constraints, Dimensions, Pattern constraints, Endpoint joins) should have a collapse/expand toggle so the user can hide sections they don't need and reduce scrolling. State should persist across refreshes within the session (JS-side `Set` of collapsed section ids). Small chevron icon on the right of the header; collapsed state shows the header only with row count.
+15. **Editable configurable elements (research + implement)** — investigate whether Fusion's API exposes post-creation parameters for constrained elements: polygon side count and radius (`PolygonConstraint` properties?), circular/rectangular pattern count and spacing. If accessible and writable, add a new "Editable parameters" section (or inline edit within the existing row) so users can adjust these without re-entering the original command dialog. Start with a spike probe before implementing.

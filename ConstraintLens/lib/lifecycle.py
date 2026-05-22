@@ -1,6 +1,7 @@
 # lib/lifecycle.py — command + palette registration (SPEC.md sections 4, 6, 7).
 
 import os
+import shutil
 import traceback
 
 import adsk.core
@@ -35,6 +36,7 @@ def start(addin_dir: str) -> None:
     app = adsk.core.Application.get()
     ui = app.userInterface
 
+    _copy_native_icons(ui, addin_dir)   # before palette is created
     _ensure_command(app, ui)
     _ensure_button(ui)
 
@@ -68,6 +70,57 @@ def stop() -> None:
         _command_definition = None
 
 
+# --- Native icon copy ---------------------------------------------------
+
+# Maps our ConstraintLens kind names → sketch resource subfolder names.
+# Anchored via SketchGeomConstraintCmd.resourceFolder → .../sketch/Constraint_Coincident,
+# then the parent of that is the sketch/ resource base.
+_ICON_MAP: dict[str, str] = {
+    "CoincidentConstraint":                  "Constraint_Coincident",
+    "CoincidentToSurfaceConstraint":         "Constraint_Coincident",
+    "CollinearConstraint":                   "Constraint_Collinear",
+    "ConcentricConstraint":                  "Constraint_Concentric",
+    "EqualConstraint":                       "Constraint_Equal",
+    "HorizontalConstraint":                  "Constraint_Horizontal",
+    "HorizontalPointsConstraint":            "Constraint_HorizontalVertical",
+    "VerticalConstraint":                    "Constraint_Vertical",
+    "VerticalPointsConstraint":              "Constraint_HorizontalVertical",
+    "MidPointConstraint":                    "Constraint_MidPoint",
+    "ParallelConstraint":                    "Constraint_Parallel",
+    "PerpendicularConstraint":               "Constraint_Perpendicular",
+    "PolygonConstraint":                     "Constraint_Polygon",
+    "SymmetryConstraint":                    "Constraint_Symmetry",
+    "TangentConstraint":                     "Constraint_Tangent",
+    "LineOnPlanarSurfaceConstraint":         "Constraint_Fix",
+    "ImplicitCoincidentJoin":               "Constraint_Coincident",
+}
+
+
+def _copy_native_icons(ui: adsk.core.UserInterface, addin_dir: str) -> None:
+    """Copy Fusion's built-in constraint PNGs into palette/icons/ for the webview."""
+    try:
+        # SketchGeomConstraintCmd.resourceFolder → .../sketch/Constraint_Coincident
+        cmd = ui.commandDefinitions.itemById("SketchGeomConstraintCmd")
+        if cmd is None:
+            return
+        base = os.path.dirname((cmd.resourceFolder or "").rstrip("/\\"))
+        if not os.path.isdir(base):
+            return
+
+        icons_dir = os.path.join(addin_dir, "palette", "icons")
+        os.makedirs(icons_dir, exist_ok=True)
+
+        for kind, folder_name in _ICON_MAP.items():
+            src = os.path.join(base, folder_name, "16x16.png")
+            dst = os.path.join(icons_dir, f"{kind}.png")
+            try:
+                shutil.copy2(src, dst)
+            except Exception:
+                pass  # missing icon → JS onerror falls back to inline SVG
+    except Exception:
+        pass  # entire copy step is best-effort; SVG fallback covers all types
+
+
 # --- Command + button ---------------------------------------------------
 
 
@@ -80,7 +133,7 @@ def _ensure_command(app: adsk.core.Application, ui: adsk.core.UserInterface) -> 
         _CMD_ID,
         "Constraint Lens",
         "Show the docked panel listing all constraints in the active sketch.",
-        "",  # icon dir — empty for MVP; Fusion will use a default glyph.
+        os.path.join(_addin_dir, "Resources", "ConstraintLens"),
     )
     _command_definition = cmd_def
 

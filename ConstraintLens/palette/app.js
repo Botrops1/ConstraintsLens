@@ -23,31 +23,101 @@
         actionResult: "actionResult",
     };
 
-    // --- Glyphs (text fallback; SVG files can replace these later). ------
+    // --- SVG icons, one per constraint type. --------------------------------
+    // Inserted as raw HTML (not escaped); safe because these are hardcoded constants.
 
-    const TYPE_GLYPHS = {
-        HorizontalConstraint: "—",
-        VerticalConstraint: "|",
-        HorizontalPointsConstraint: "↔",
-        VerticalPointsConstraint: "↕",
-        ParallelConstraint: "∥",
-        PerpendicularConstraint: "⊥",
-        CollinearConstraint: "⋯",
-        CoincidentConstraint: "●",
-        CoincidentToSurfaceConstraint: "▣",
-        TangentConstraint: "⌒",
-        EqualConstraint: "=",
-        ConcentricConstraint: "⊙",
-        MidPointConstraint: "◐",
-        SymmetryConstraint: "↔",
-        OffsetConstraint: "⫽",
-        PolygonConstraint: "⬡",
-        CircularPatternConstraint: "○",
-        RectangularPatternConstraint: "▦",
-        LineOnPlanarSurfaceConstraint: "▤",
-        LineParallelToPlanarSurfaceConstraint: "▥",
-        PerpendicularToSurfaceConstraint: "▧",
-        ImplicitCoincidentJoin: "●",
+    const _S = `<svg width="16" height="16" viewBox="0 0 16 16" fill="none">`;
+    const _E = `</svg>`;
+    const _L = (x1,y1,x2,y2,w,extra="") =>
+        `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="currentColor" stroke-width="${w}" stroke-linecap="round"${extra}/>`;
+    const _C = (cx,cy,r,fill) => fill
+        ? `<circle cx="${cx}" cy="${cy}" r="${r}" fill="currentColor"/>`
+        : `<circle cx="${cx}" cy="${cy}" r="${r}" stroke="currentColor" stroke-width="1.5"/>`;
+
+    const TYPE_ICONS = {
+        HorizontalConstraint:
+            _S + _L(2,8,14,8,1.5) + _L(2,5,2,11,1.5) + _L(14,5,14,11,1.5) + _E,
+
+        VerticalConstraint:
+            _S + _L(8,2,8,14,1.5) + _L(5,2,11,2,1.5) + _L(5,14,11,14,1.5) + _E,
+
+        HorizontalPointsConstraint:
+            _S + _C(3,8,1.5,true) + _C(13,8,1.5,true)
+            + _L(5,8,11,8,1,` stroke-dasharray="2 1.5"`) + _E,
+
+        VerticalPointsConstraint:
+            _S + _C(8,3,1.5,true) + _C(8,13,1.5,true)
+            + _L(8,5,8,11,1,` stroke-dasharray="2 1.5"`) + _E,
+
+        ParallelConstraint:
+            _S + _L(2,13,8,3,1.5) + _L(8,13,14,3,1.5) + _E,
+
+        PerpendicularConstraint:
+            _S + _L(4,2,4,13,1.5) + _L(4,13,14,13,1.5)
+            + `<path d="M4 9 L8 9 L8 13" stroke="currentColor" stroke-width="1" fill="none"/>` + _E,
+
+        CollinearConstraint:
+            _S + _L(2,13,14,3,1.5) + _C(5,11,1.5,true) + _C(8,8,1.5,true) + _C(11,5,1.5,true) + _E,
+
+        CoincidentConstraint:
+            _S + _L(2,13,8,8,1.5) + _L(14,3,8,8,1.5) + _C(8,8,2.5,true) + _E,
+
+        CoincidentToSurfaceConstraint:
+            _S + _L(2,13,14,13,1.5) + _C(8,8,2.5,true) + _L(8,10.5,8,13,1.5) + _E,
+
+        TangentConstraint:
+            _S + _L(1,5,15,5,1.5)
+            + `<circle cx="8" cy="10" r="4.5" stroke="currentColor" stroke-width="1.5"/>` + _E,
+
+        EqualConstraint:
+            _S + _L(3,6,13,6,1.5) + _L(3,10,13,10,1.5) + _E,
+
+        ConcentricConstraint:
+            _S + _C(8,8,6.5,false) + _C(8,8,2.5,false) + _E,
+
+        MidPointConstraint:
+            _S + _L(2,12,14,12,1.5) + _L(8,4,8,12,1.5)
+            + _C(8,12,1.5,true)
+            + `<circle cx="8" cy="4" r="1.5" stroke="currentColor" stroke-width="1.5" fill="none"/>` + _E,
+
+        SymmetryConstraint:
+            _S + _L(8,2,8,14,1,` stroke-dasharray="2 2"`)
+            + `<polyline points="4,6 2,8 4,10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>`
+            + `<polyline points="12,6 14,8 12,10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>` + _E,
+
+        OffsetConstraint:
+            _S + `<path d="M2 5 Q8 3 14 5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" fill="none"/>`
+            + `<path d="M2 11 Q8 9 14 11" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" fill="none"/>`
+            + _L(8,5,8,9,1,` stroke-dasharray="1.5 1.5"`) + _E,
+
+        PolygonConstraint:
+            _S + `<polygon points="8,2 13.2,5 13.2,11 8,14 2.8,11 2.8,5" stroke="currentColor" stroke-width="1.5"/>` + _E,
+
+        CircularPatternConstraint:
+            _S + `<circle cx="8" cy="8" r="5.5" stroke="currentColor" stroke-width="1" stroke-dasharray="2 2"/>`
+            + _C(8,2.5,1.5,true) + _C(12.3,10.5,1.5,true) + _C(3.7,10.5,1.5,true) + _E,
+
+        RectangularPatternConstraint:
+            _S + `<rect x="2" y="2" width="5" height="5" stroke="currentColor" stroke-width="1.5"/>`
+            + `<rect x="9" y="2" width="5" height="5" stroke="currentColor" stroke-width="1.5"/>`
+            + `<rect x="2" y="9" width="5" height="5" stroke="currentColor" stroke-width="1.5"/>`
+            + `<rect x="9" y="9" width="5" height="5" stroke="currentColor" stroke-width="1.5"/>` + _E,
+
+        LineOnPlanarSurfaceConstraint:
+            _S + _L(2,12,14,12,1.5)
+            + _L(2,14,5,12,1,"") + _L(6,14,9,12,1,"") + _L(10,14,13,12,1,"")
+            + _L(8,3,8,12,1.5) + _E,
+
+        LineParallelToPlanarSurfaceConstraint:
+            _S + _L(2,13,14,13,1.5) + _L(2,6,14,6,1.5)
+            + _L(8,6,8,13,1,` stroke-dasharray="2 2"`) + _E,
+
+        PerpendicularToSurfaceConstraint:
+            _S + _L(2,13,14,13,1.5) + _L(8,3,8,13,1.5)
+            + `<path d="M8 9 L11 9 L11 13" stroke="currentColor" stroke-width="1" fill="none"/>` + _E,
+
+        ImplicitCoincidentJoin:
+            _S + _L(2,13,8,8,1.5) + _L(14,3,8,8,1.5) + _C(8,8,2.5,true) + _E,
     };
 
     // --- State -----------------------------------------------------------
@@ -184,15 +254,17 @@
         const q = state.filter;
         const allC = snap.constraints || [];
         const allD = snap.dimensions || [];
+        const allP = snap.patterns || [];
         const allJ = snap.implicitJoins || [];
         const c = allC.filter(r => matchesFilter(r, q));
         const d = allD.filter(r => matchesFilter(r, q));
+        const p = allP.filter(r => matchesFilter(r, q));
         const j = allJ.filter(r => matchesFilter(r, q));
 
         const parts = [];
 
-        if (c.length === 0 && d.length === 0 && j.length === 0) {
-            const totalAll = allC.length + allD.length + allJ.length;
+        if (c.length === 0 && d.length === 0 && p.length === 0 && j.length === 0) {
+            const totalAll = allC.length + allD.length + allP.length + allJ.length;
             if (q && totalAll > 0) {
                 parts.push(`<div class="empty">No matches for &ldquo;${escape(q)}&rdquo;.</div>`);
             } else {
@@ -214,6 +286,13 @@
             parts.push(`<div class="section-header">${label}</div>`);
             for (const row of d) parts.push(rowHTML(row));
         }
+        if (p.length) {
+            const label = q
+                ? `Pattern constraints (${p.length} of ${allP.length})`
+                : `Pattern constraints (${allP.length})`;
+            parts.push(`<div class="section-header">${label}</div>`);
+            for (const row of p) parts.push(rowHTML(row));
+        }
         if (j.length) {
             const label = q
                 ? `Endpoint joins (${j.length} of ${allJ.length})`
@@ -225,8 +304,22 @@
         els.root.innerHTML = parts.join("");
     }
 
+    // Native PNG load failure → swap in the SVG from TYPE_ICONS.
+    // Error events on <img> don't bubble, so we use capture phase.
+    document.addEventListener("error", (e) => {
+        const img = e.target;
+        if (!img.classList || !img.classList.contains("ci")) return;
+        const k = img.getAttribute("data-k") || "";
+        const svg = TYPE_ICONS[k];
+        const tmpl = document.createElement("template");
+        tmpl.innerHTML = svg || `<span style="line-height:16px">·</span>`;
+        img.replaceWith(tmpl.content.firstElementChild || tmpl.content.firstChild);
+    }, true);
+
     function rowHTML(row) {
-        const glyph = TYPE_GLYPHS[row.kind] || "·";
+        const icon = TYPE_ICONS[row.kind]
+            ? `<img class="ci" src="icons/${row.kind}.png" data-k="${escape(row.kind)}" width="16" height="16" alt="">`
+            : `<span style="line-height:16px">·</span>`;
         const hasErrors = row.errors && row.errors.length > 0;
         const chips = (row.entities || []).map(chipHTML).join("");
         const pseudoClass = row.isPseudo ? " pseudo" : "";
@@ -265,7 +358,7 @@
                  data-action="selectEntities"
                  role="button">
                 ${checkboxHTML}
-                <div class="row-glyph">${escape(glyph)}</div>
+                <div class="row-glyph">${icon}</div>
                 <div class="row-body">
                     <div class="row-label">${escape(row.label || "")}</div>
                     <div class="row-meta">

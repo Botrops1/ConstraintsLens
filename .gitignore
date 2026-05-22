@@ -14,3 +14,7 @@ __pycache__/
 
 # IDE
 .vscode/
+
+# Fusion native icons — copied at add-in startup from the Fusion install
+# (proprietary Autodesk assets, not committed)
+ConstraintLens/palette/icons/
