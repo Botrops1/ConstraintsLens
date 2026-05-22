@@ -9,7 +9,6 @@
 
 import os
 import tempfile
-import traceback
 
 import adsk.core
 

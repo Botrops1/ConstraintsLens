@@ -118,6 +118,6 @@ def run(context):
             "via Sketch → Offset Curves."
         )
 
-    except Exception as exc:
+    except Exception:
         import traceback
         ui.messageBox(f"fixture_dimensions failed:\n{traceback.format_exc()}")

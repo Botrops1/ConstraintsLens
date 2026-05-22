@@ -54,7 +54,7 @@ def run(context):
             except Exception as exc:
                 w(f"    (error listing folder: {exc})")
         else:
-            w(f"    (folder missing or empty)")
+            w("    (folder missing or empty)")
         w()
 
     # --- B. Walk the sketch resource base for folders with pattern/polygon --
@@ -115,7 +115,7 @@ def run(context):
             except Exception as exc:
                 w(f"    (error listing: {exc})")
         else:
-            w(f"    (folder missing or empty)")
+            w("    (folder missing or empty)")
         w()
 
     # --- Write output -------------------------------------------------------
