@@ -265,6 +265,14 @@ def _on_palette_message(action: str, raw: str) -> None:
         _handle_bulk_delete(app, payload)
         return
 
+    if action == messaging.ACTION_EDIT_DIMENSION:
+        _handle_edit_dimension(app, payload)
+        return
+
+    if action == messaging.ACTION_FIND_SELECTED:
+        _handle_find_selected(app)
+        return
+
     # Unknown action — log and ignore (forward-compat per SPEC.md section 7).
 
 
@@ -407,6 +415,38 @@ def _handle_show_underconstrained(app: adsk.core.Application) -> None:
             "ok": False,
             "message": f"Show underconstrained failed: {exc}",
         })
+
+
+def _handle_edit_dimension(app: adsk.core.Application, payload: dict) -> None:
+    token = payload.get("token") or ""
+    expression = payload.get("expression") or ""
+    if not token or not expression:
+        return
+    result = actions.edit_dimension(app, token, expression)
+    messaging.send(_palette, messaging.PY_ACTION_RESULT, {
+        "action": messaging.ACTION_EDIT_DIMENSION,
+        "ok": result.ok,
+        "message": result.message,
+    })
+    _publish_active(app)  # always refresh — restores original value on failure
+
+
+def _handle_find_selected(app: adsk.core.Application) -> None:
+    ui = app.userInterface
+    entity_tokens: list[str] = []
+    try:
+        sel = ui.activeSelections
+        for i in range(sel.count):
+            try:
+                entity = sel.item(i).entity
+                tok = tokens.token_of(entity) or ""
+                if tok:
+                    entity_tokens.append(tok)
+            except Exception:
+                continue
+    except Exception:
+        pass
+    messaging.send(_palette, messaging.PY_ACTION_SELECTION, {"tokens": entity_tokens})
 
 
 def _entities_for_row(constraint) -> list:

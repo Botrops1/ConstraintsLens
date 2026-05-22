@@ -4,7 +4,7 @@
 
 **Working on:** v1 polish backlog.
 **Version:** 0.1.7 released — backlog #5, #8 shipped. Previous: 0.1.6 (backlog #1, #2, #3, #9, #10).
-**Next step:** Pick next backlog item (see v1 Polish Backlog below). In-session: backlog #4 done (native Fusion constraint icons via palette/icons/ copy); add-in button icon added; OffsetConstraint removed from constraints section (shown only in Dimensions); pattern constraints moved to separate "Pattern constraints" section; backlog #13 added.
+**Next step:** Pick next backlog item (see v1 Polish Backlog below). In-session: backlog #4 done (native Fusion constraint icons); backlog #6, #7, #12 done (inline dimension edit, canvas Find/highlight, entity readout).
 **Blocked by:** Nothing.
 
 ### What's verified working (PC tests 1–5 + v0.1.6 session)
@@ -109,15 +109,16 @@ tests/
 1. ~~Move button to `SketchConstraintsPanel` for in-sketch discoverability.~~ **DONE ✓**
 2. ~~"Show underconstrained" button~~ — **DONE ✓** "Show u/c" button in toolbar; calls `executeTextCommand("Sketch.ShowUnderconstrained")`; result surfaced as toast.
 3. ~~Filter / search by constraint type~~ — **DONE ✓** Filter bar below toolbar; client-side filtering by label/kind; section headers show `(N of M)` when active.
-4. Constraint icons matching Fusion's own glyph set.
+4. ~~Constraint icons matching Fusion's own glyph set.~~ **DONE ✓** Native Fusion PNGs copied at startup to `palette/icons/`; SVG fallback on load failure.
 5. ~~Bulk delete with confirmation.~~ **DONE ✓** Checkboxes on deletable rows; "Delete N" + "Clear" toolbar buttons; Ctrl+Z note in confirm dialog; single × button removed.
-6. Inline editable dimension expression.
-7. **Sketch-→-palette reverse lookup** — user picks an entity on the canvas, ConstraintLens scrolls to / highlights every row that references it. Lets the user start from the geometry rather than the list.
+6. ~~Inline editable dimension expression.~~ **DONE ✓** Expression shown in accent color below label; pencil icon (hover-visible) → inline `<input>`; Enter commits, Esc cancels; Python sets `param.expression` and refreshes.
+7. ~~**Sketch-→-palette reverse lookup**~~ — **DONE ✓** "Find" button reads `activeSelections` from Python; JS searches snapshot entity tokens; matching rows highlighted (blue left border) and scrolled to. Pull-model (on demand), not event-driven.
 8. ~~**Mark invisible / unselectable entities**~~ — **DONE ✓** `chip_for()` checks `entity.isVisible`; invisible chips rendered dimmed + dashed border + "hidden" badge. Note: clicking a row still selects/reveals the hidden entity on canvas — this is Fusion's native behaviour.
 9. ~~**Normalize OffsetConstraint label**~~ — **DONE ✓** Label is now `Offset (1→1 curves, 30 mm)` style, pulling expression from the matched SketchOffsetCurvesDimension.
 10. ~~**Dimension entity chip labels — show "Line 2" not "SketchLine"**~~ — **DONE ✓** `_DIM_ACCESSORS` map added to `dispatch.py`; Angular/Diameter/Radial and others now use type-specific accessors with `entityOne`/`entityTwo` fallback.
 11. ~~**Verify fully-constrained green status**~~ — **VERIFIED PC test (session 5+).** Banner turns green and reads "— fully constrained" correctly.
-12. **Canvas-to-palette entity name lookup** — user clicks a sketch entity on the canvas, sees its ConstraintLens name (e.g. "Line 3") somewhere in the UI, then can type that name into the filter bar to find all rows that reference it. Complement to backlog #7 (reverse lookup that auto-scrolls); this simpler variant just exposes the name. Could be implemented as a hover tooltip on canvas selection events, a small "selected entity" readout in the palette toolbar, or by reacting to Fusion's `activeSelections` change event and displaying the resolved label.
+12. ~~**Canvas-to-palette entity name lookup**~~ — **DONE ✓** Same "Find" button as #7; entity label shown in accent-color readout strip below filter bar ("Selected: Line 3"). Shares infrastructure with #7.
 13. **Double-click to open edit dialog** — double-clicking an Offset dimension row should activate the Offset Curves edit dialog; double-clicking a CircularPattern or RectangularPattern constraint row should open the respective pattern edit dialog. Requires finding the correct `executeTextCommand` or `commandDefinition.execute()` call for each type, and distinguishing double-click from single-click in the JS event handler.
 14. **Collapsible sections** — each section header (Geometric constraints, Dimensions, Pattern constraints, Endpoint joins) should have a collapse/expand toggle so the user can hide sections they don't need and reduce scrolling. State should persist across refreshes within the session (JS-side `Set` of collapsed section ids). Small chevron icon on the right of the header; collapsed state shows the header only with row count.
 15. **Editable configurable elements (research + implement)** — investigate whether Fusion's API exposes post-creation parameters for constrained elements: polygon side count and radius (`PolygonConstraint` properties?), circular/rectangular pattern count and spacing. If accessible and writable, add a new "Editable parameters" section (or inline edit within the existing row) so users can adjust these without re-entering the original command dialog. Start with a spike probe before implementing.
+16. **Entity chip click → filter** — clicking an entity chip inside a row (e.g. "Line 3") should populate the filter bar with that label and trigger filtering, showing all rows that reference the same entity. Lets the user pivot from one constraint to everything else that touches the same geometry, without going back to the canvas. Simple to implement: delegated click on `.chip`, set `state.filter` + `els.filter.value`, call `renderSnapshot()`.

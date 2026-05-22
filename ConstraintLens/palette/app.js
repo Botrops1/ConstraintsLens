@@ -14,6 +14,8 @@
         deleteConstraint: "deleteConstraint",
         showUnderconstrained: "showUnderconstrained",
         bulkDelete: "bulkDelete",
+        editDimension: "editDimension",
+        findSelected: "findSelected",
     };
 
     const PY_TO_JS = {
@@ -21,6 +23,7 @@
         noActiveSketch: "noActiveSketch",
         error: "error",
         actionResult: "actionResult",
+        selectionResult: "selectionResult",
     };
 
     // --- SVG icons, one per constraint type. --------------------------------
@@ -127,6 +130,7 @@
         loaded: false,
         filter: "",
         selected: new Set(),
+        highlights: new Set(),   // rowKeys highlighted by Find (#7)
     };
 
     const els = {
@@ -134,9 +138,11 @@
         status: document.getElementById("status"),
         refresh: document.getElementById("refresh"),
         highlightUnder: document.getElementById("highlight-under"),
+        findSelected: document.getElementById("find-selected"),
         bulkDelete: document.getElementById("bulk-delete"),
         clearSelection: document.getElementById("clear-selection"),
         filter: document.getElementById("filter"),
+        entityReadout: document.getElementById("entity-readout"),
     };
 
     // --- Outgoing messages -----------------------------------------------
@@ -151,6 +157,7 @@
 
     els.refresh.addEventListener("click", () => send(JS_TO_PY.requestRefresh, {}));
     els.highlightUnder.addEventListener("click", () => send(JS_TO_PY.showUnderconstrained, {}));
+    els.findSelected.addEventListener("click", () => send(JS_TO_PY.findSelected, {}));
     els.filter.addEventListener("input", () => {
         state.filter = els.filter.value.trim().toLowerCase();
         renderSnapshot();
@@ -186,6 +193,7 @@
                 case PY_TO_JS.noActiveSketch: onNoActiveSketch(payload); break;
                 case PY_TO_JS.error: onError(payload); break;
                 case PY_TO_JS.actionResult: onActionResult(payload); break;
+                case PY_TO_JS.selectionResult: onSelectionResult(payload); break;
                 default: console.log("unknown action", action, payload);
             }
             return "OK";
@@ -205,14 +213,18 @@
         state.selected.clear();
         updateBulkDeleteButton();
         els.highlightUnder.disabled = false;
+        els.findSelected.disabled = false;
         renderSnapshot();
     }
 
     function onNoActiveSketch(payload) {
         state.snapshot = null;
         state.selected.clear();
+        state.highlights.clear();
         updateBulkDeleteButton();
         els.highlightUnder.disabled = true;
+        els.findSelected.disabled = true;
+        showEntityReadout("");
         setStatus(payload.reason || "No active sketch.", "warn");
         els.root.innerHTML = `<div class="empty">${escape(payload.reason || "Open a sketch for edit to see its constraints.")}</div>`;
     }
@@ -224,6 +236,58 @@
     function onActionResult(payload) {
         const cls = payload.ok ? "ok" : "error";
         showToast(payload.message || (payload.ok ? "OK" : "Failed"), cls);
+    }
+
+    function onSelectionResult(payload) {
+        const tokens = payload.tokens || [];
+        state.highlights.clear();
+
+        if (!state.snapshot || tokens.length === 0) {
+            showEntityReadout("");
+            renderSnapshot();
+            return;
+        }
+
+        // Build entity token → label and token → [rowKey] indices from snapshot.
+        const tokenToLabel = new Map();
+        const tokenToRows = new Map();
+        for (const section of [
+            state.snapshot.constraints,
+            state.snapshot.dimensions,
+            state.snapshot.patterns,
+            state.snapshot.implicitJoins,
+        ]) {
+            for (const row of (section || [])) {
+                for (const chip of (row.entities || [])) {
+                    if (!chip.token) continue;
+                    if (!tokenToLabel.has(chip.token)) tokenToLabel.set(chip.token, chip.label || chip.kind || "?");
+                    if (!tokenToRows.has(chip.token)) tokenToRows.set(chip.token, []);
+                    tokenToRows.get(chip.token).push(row.rowKey);
+                }
+            }
+        }
+
+        // #12 — entity name readout.
+        const labels = tokens.map(t => tokenToLabel.get(t)).filter(Boolean);
+        showEntityReadout(labels.length ? "Selected: " + labels.join(", ") : "Selected entity not in any row.");
+
+        // #7 — collect matching row keys.
+        for (const tok of tokens) {
+            for (const rk of (tokenToRows.get(tok) || [])) {
+                state.highlights.add(rk);
+            }
+        }
+
+        renderSnapshot();
+
+        // Scroll to first highlighted row.
+        const first = els.root.querySelector(".row.highlighted");
+        if (first) first.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    }
+
+    function showEntityReadout(text) {
+        els.entityReadout.textContent = text;
+        els.entityReadout.style.display = text ? "block" : "none";
     }
 
     // --- Filtering -------------------------------------------------------
@@ -324,11 +388,21 @@
         const chips = (row.entities || []).map(chipHTML).join("");
         const pseudoClass = row.isPseudo ? " pseudo" : "";
         const errorClass = hasErrors ? " has-errors" : "";
+        const highlightClass = state.highlights.has(row.rowKey) ? " highlighted" : "";
         const badges = [];
         if (row.isPseudo) badges.push(`<span class="badge implicit">implicit</span>`);
         if (hasErrors) badges.push(`<span class="badge error">accessor</span>`);
         const errorsHTML = hasErrors
             ? `<div class="errors">${row.errors.map(escape).join("; ")}</div>`
+            : "";
+
+        // Inline dimension expression (#6) — shown only for rows with a parameter.
+        const exprHTML = row.parameterExpression
+            ? `<div class="dim-expr-wrap">
+                <span class="dim-expr">${escape(row.parameterExpression)}</span>
+                <button class="btn-edit" data-action="editExpr" data-token="${escape(row.token || "")}"
+                        title="Edit expression (Enter to commit, Esc to cancel)">✎</button>
+               </div>`
             : "";
 
         // Entity tokens for token-based selection (bypasses accessor re-scan).
@@ -352,7 +426,7 @@
             : "";
 
         return `
-            <div class="row${pseudoClass}${errorClass}"
+            <div class="row${pseudoClass}${errorClass}${highlightClass}"
                  data-row-key="${escape(row.rowKey || "")}"
                  data-entity-tokens="${escape(entityTokensJson)}"
                  data-action="selectEntities"
@@ -361,6 +435,7 @@
                 <div class="row-glyph">${icon}</div>
                 <div class="row-body">
                     <div class="row-label">${escape(row.label || "")}</div>
+                    ${exprHTML}
                     <div class="row-meta">
                         <span class="kind">${escape(row.kind || "")}</span>
                         ${badges.join("")}
@@ -414,6 +489,12 @@
             return;
         }
 
+        if (action === "editExpr") {
+            evt.stopPropagation();
+            startEditExpr(actionEl);
+            return;
+        }
+
         if (action === "selectEntities") {
             const row = actionEl.closest(".row");
             const rowKey = row ? row.getAttribute("data-row-key") || "" : "";
@@ -427,6 +508,53 @@
             return;
         }
     });
+
+    function startEditExpr(editBtn) {
+        const wrap = editBtn.closest(".dim-expr-wrap");
+        if (!wrap) return;
+        const span = wrap.querySelector(".dim-expr");
+        if (!span) return;
+        const token = editBtn.getAttribute("data-token") || "";
+        const currentVal = span.textContent || "";
+
+        const input = document.createElement("input");
+        input.type = "text";
+        input.className = "expr-input";
+        input.value = currentVal;
+
+        wrap.replaceChild(input, span);
+        editBtn.style.visibility = "hidden";
+        input.focus();
+        input.select();
+
+        function commit() {
+            if (input.disabled) return;
+            const newExpr = input.value.trim();
+            if (!newExpr) { cancelEdit(); return; }
+            input.disabled = true;
+            send(JS_TO_PY.editDimension, { token, expression: newExpr });
+            // Python always sends a data refresh after, which rebuilds the DOM.
+        }
+
+        function cancelEdit() {
+            if (!wrap.contains(input)) return;
+            wrap.replaceChild(span, input);
+            editBtn.style.visibility = "";
+        }
+
+        input.addEventListener("keydown", (e) => {
+            if (e.key === "Enter") { e.preventDefault(); e.stopPropagation(); commit(); }
+            if (e.key === "Escape") { e.preventDefault(); e.stopPropagation(); cancelEdit(); }
+            e.stopPropagation();
+        });
+        input.addEventListener("blur", () => {
+            // Delay to let keydown fire first; disabled flag prevents double-commit.
+            setTimeout(() => {
+                if (document.contains(input) && !input.disabled) commit();
+            }, 150);
+        });
+        input.addEventListener("click", (e) => e.stopPropagation());
+    }
 
     // --- Helpers ---------------------------------------------------------
 

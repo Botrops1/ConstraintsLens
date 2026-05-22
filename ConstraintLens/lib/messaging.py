@@ -13,11 +13,14 @@ ACTION_SELECT_CONSTRAINT = "selectConstraint"
 ACTION_DELETE_CONSTRAINT = "deleteConstraint"
 ACTION_SHOW_UNDERCONSTRAINED = "showUnderconstrained"
 ACTION_BULK_DELETE = "bulkDelete"
+ACTION_EDIT_DIMENSION = "editDimension"
+ACTION_FIND_SELECTED = "findSelected"
 
 PY_ACTION_DATA = "data"
 PY_ACTION_NO_ACTIVE_SKETCH = "noActiveSketch"
 PY_ACTION_ERROR = "error"
 PY_ACTION_RESULT = "actionResult"
+PY_ACTION_SELECTION = "selectionResult"
 
 
 def send(palette: adsk.core.Palette, action: str, payload: dict | None = None) -> bool:

@@ -14,6 +14,26 @@ class ActionResult:
     message: str
 
 
+def edit_dimension(app: adsk.core.Application, token: str, expression: str) -> ActionResult:
+    design = adsk.fusion.Design.cast(app.activeProduct)
+    if not design:
+        return ActionResult(False, "No active design.")
+    entity = tokens.resolve(design, token)
+    if entity is None:
+        return ActionResult(False, "Dimension not found.")
+    dim = adsk.fusion.SketchDimension.cast(entity)
+    if dim is None:
+        return ActionResult(False, "Entity is not a dimension.")
+    try:
+        param = dim.parameter
+        if param is None:
+            return ActionResult(False, "Dimension has no editable parameter.")
+        param.expression = expression.strip()
+        return ActionResult(True, f"Updated to {param.expression}.")
+    except Exception as exc:
+        return ActionResult(False, f"Edit failed: {exc}")
+
+
 def delete_constraint(app: adsk.core.Application, token: str) -> ActionResult:
     design = adsk.fusion.Design.cast(app.activeProduct)
     if not design:

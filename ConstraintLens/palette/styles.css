@@ -271,6 +271,70 @@ main {
     width: 16px;
 }
 
+/* --- Highlighted rows from canvas Find (#7) ------------------------- */
+
+.row.highlighted {
+    background: #273040;
+    border-left: 3px solid var(--accent);
+}
+.row.highlighted:hover { background: #2d3848; }
+
+/* --- Dimension expression display and inline editor (#6) ------------ */
+
+.dim-expr-wrap {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    margin-top: 2px;
+}
+
+.dim-expr {
+    font-size: 12px;
+    color: var(--accent);
+    font-variant-numeric: tabular-nums;
+}
+
+.btn-edit {
+    background: none;
+    border: none;
+    color: var(--fg-muted);
+    cursor: pointer;
+    padding: 0 2px;
+    font-size: 11px;
+    line-height: 1;
+    opacity: 0;
+    transition: opacity 0.1s;
+}
+.dim-expr-wrap:hover .btn-edit { opacity: 1; }
+.btn-edit:hover { color: var(--accent); }
+
+.expr-input {
+    font-size: 12px;
+    font-family: inherit;
+    background: var(--bg);
+    border: 1px solid var(--accent);
+    color: var(--fg);
+    padding: 1px 4px;
+    border-radius: 2px;
+    width: 90px;
+    outline: none;
+}
+
+/* --- Entity readout strip below filter bar (#12) -------------------- */
+
+#entity-readout {
+    padding: 4px 10px;
+    background: var(--bg-elev);
+    border-bottom: 1px solid var(--border);
+    font-size: 10px;
+    color: var(--accent);
+    display: none;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
 /* --- Invisible entity chips (#8) ------------------------------------ */
 
 .chip.invisible {
