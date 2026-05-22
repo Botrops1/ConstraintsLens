@@ -261,6 +261,12 @@
         // Build entity token → label and token → [rowKey] indices from snapshot.
         const tokenToLabel = new Map();
         const tokenToRows = new Map();
+        const _addToken = (tok, label, rowKey) => {
+            if (!tok) return;
+            if (!tokenToLabel.has(tok)) tokenToLabel.set(tok, label);
+            if (!tokenToRows.has(tok)) tokenToRows.set(tok, []);
+            tokenToRows.get(tok).push(rowKey);
+        };
         for (const section of [
             state.snapshot.constraints,
             state.snapshot.dimensions,
@@ -268,11 +274,11 @@
             state.snapshot.implicitJoins,
         ]) {
             for (const row of (section || [])) {
+                // Index the row's own token (dimension/constraint entity itself).
+                _addToken(row.token, row.label || row.kind || "?", row.rowKey);
+                // Index each entity chip token (referenced geometry).
                 for (const chip of (row.entities || [])) {
-                    if (!chip.token) continue;
-                    if (!tokenToLabel.has(chip.token)) tokenToLabel.set(chip.token, chip.label || chip.kind || "?");
-                    if (!tokenToRows.has(chip.token)) tokenToRows.set(chip.token, []);
-                    tokenToRows.get(chip.token).push(row.rowKey);
+                    _addToken(chip.token, chip.label || chip.kind || "?", row.rowKey);
                 }
             }
         }
