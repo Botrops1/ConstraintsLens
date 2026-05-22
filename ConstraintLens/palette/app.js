@@ -16,6 +16,7 @@
         bulkDelete: "bulkDelete",
         editDimension: "editDimension",
         findSelected: "findSelected",
+        openEditDialog: "openEditDialog",
     };
 
     const PY_TO_JS = {
@@ -386,6 +387,8 @@
         const pseudoClass = row.isPseudo ? " pseudo" : "";
         const errorClass = hasErrors ? " has-errors" : "";
         const highlightClass = state.highlights.has(row.rowKey) ? " highlighted" : "";
+        const dblclickTitle = _DBLCLICK_KINDS && _DBLCLICK_KINDS.has(row.kind)
+            ? ` title="Double-click to open edit dialog"` : ``;
         const badges = [];
         if (row.isPseudo) badges.push(`<span class="badge implicit">implicit</span>`);
         if (hasErrors) badges.push(`<span class="badge error">accessor</span>`);
@@ -425,9 +428,10 @@
         return `
             <div class="row${pseudoClass}${errorClass}${highlightClass}"
                  data-row-key="${escape(row.rowKey || "")}"
+                 data-kind="${escape(row.kind || "")}"
                  data-entity-tokens="${escape(entityTokensJson)}"
                  data-action="selectEntities"
-                 role="button">
+                 role="button"${dblclickTitle}>
                 ${checkboxHTML}
                 <div class="row-glyph">${icon}</div>
                 <div class="row-body">
@@ -579,6 +583,26 @@
         });
         input.addEventListener("click", (e) => e.stopPropagation());
     }
+
+    // Double-click on a row → open Fusion's native edit dialog (#13).
+    // Single-click still selects entities; the two preceding clicks on a
+    // dblclick are harmless (they just re-select the same entities).
+    const _DBLCLICK_KINDS = new Set([
+        "SketchOffsetCurvesDimension",
+        "CircularPatternConstraint",
+        "RectangularPatternConstraint",
+    ]);
+
+    els.root.addEventListener("dblclick", (evt) => {
+        // Ignore dblclick on interactive controls inside the row.
+        if (evt.target.closest(".btn-edit, .expr-input, .row-check, .btn")) return;
+        const row = evt.target.closest(".row[data-kind]");
+        if (!row) return;
+        const kind = row.getAttribute("data-kind") || "";
+        if (!_DBLCLICK_KINDS.has(kind)) return;
+        const rowKey = row.getAttribute("data-row-key") || "";
+        send(JS_TO_PY.openEditDialog, { kind, rowKey });
+    });
 
     // --- Helpers ---------------------------------------------------------
 

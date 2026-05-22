@@ -273,6 +273,10 @@ def _on_palette_message(action: str, raw: str) -> None:
         _handle_find_selected(app)
         return
 
+    if action == messaging.ACTION_OPEN_EDIT_DIALOG:
+        _handle_open_edit_dialog(app, payload)
+        return
+
     # Unknown action — log and ignore (forward-compat per SPEC.md section 7).
 
 
@@ -414,6 +418,43 @@ def _handle_show_underconstrained(app: adsk.core.Application) -> None:
             "action": messaging.ACTION_SHOW_UNDERCONSTRAINED,
             "ok": False,
             "message": f"Show underconstrained failed: {exc}",
+        })
+
+
+# Command strings discovered by tests/probe_patterns/probe_patterns.py.
+# Replace TODOs once probe results are back.
+_EDIT_DIALOG_COMMANDS: dict[str, str] = {
+    "SketchOffsetCurvesDimension":  "TODO_offset_edit_command",
+    "CircularPatternConstraint":    "TODO_circular_pattern_edit_command",
+    "RectangularPatternConstraint": "TODO_rectangular_pattern_edit_command",
+}
+
+
+def _handle_open_edit_dialog(app: adsk.core.Application, payload: dict) -> None:
+    kind = payload.get("kind") or ""
+    cmd_str = _EDIT_DIALOG_COMMANDS.get(kind)
+    if not cmd_str or cmd_str.startswith("TODO"):
+        messaging.send(_palette, messaging.PY_ACTION_RESULT, {
+            "action": messaging.ACTION_OPEN_EDIT_DIALOG,
+            "ok": False,
+            "message": f"Edit dialog for {kind} not yet configured (pending probe).",
+        })
+        return
+    if scanner.active_sketch(app) is None:
+        messaging.send(_palette, messaging.PY_ACTION_RESULT, {
+            "action": messaging.ACTION_OPEN_EDIT_DIALOG,
+            "ok": False,
+            "message": "No active sketch.",
+        })
+        return
+    try:
+        app.executeTextCommand(cmd_str)
+        # No result message — the dialog opens on the canvas; silence is success.
+    except Exception as exc:
+        messaging.send(_palette, messaging.PY_ACTION_RESULT, {
+            "action": messaging.ACTION_OPEN_EDIT_DIALOG,
+            "ok": False,
+            "message": f"Open dialog failed: {exc}",
         })
 
 
