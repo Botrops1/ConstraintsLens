@@ -69,6 +69,8 @@ def _scan_constraints(sketch: adsk.fusion.Sketch, lab: EntityLabeler) -> list[di
             glyph = desc.glyph
             try:
                 result = desc.build(c, lab)
+                if desc.kind == "OffsetConstraint":
+                    result = dispatch.patch_offset_label(result, c, sketch)
             except Exception as exc:
                 result = dispatch.ScanResult(
                     f"{desc.kind} (builder raised)", [], [f"builder raised: {exc}"]

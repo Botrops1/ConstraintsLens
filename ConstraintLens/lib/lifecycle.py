@@ -13,10 +13,9 @@ from . import actions, events, messaging, scanner, selection, tokens
 _CMD_ID = "ConstraintLensShow"
 _PALETTE_ID = "ConstraintLensPalette"
 
-# Per SPEC.md open question 1: the exact panel id is verified at runtime.
-# SolidScriptsAddinsPanel exists in every install; the spike probe enumerates
-# alternatives (e.g. SketchInspectPanel) for a later relocation.
-_PANEL_ID = "SolidScriptsAddinsPanel"
+# SketchConstraintsPanel lives in the Sketch workspace (backlog #1 relocation).
+# Falls back to a messageBox if the panel id is wrong for this Fusion build.
+_PANEL_ID = "SketchConstraintsPanel"
 
 
 # Module state — kept here, not duplicated across modules.
@@ -205,6 +204,10 @@ def _on_palette_message(action: str, raw: str) -> None:
         _handle_delete(app, payload)
         return
 
+    if action == messaging.ACTION_SHOW_UNDERCONSTRAINED:
+        _handle_show_underconstrained(app)
+        return
+
     # Unknown action — log and ignore (forward-compat per SPEC.md section 7).
 
 
@@ -299,6 +302,31 @@ def _handle_delete(app: adsk.core.Application, payload: dict) -> None:
         "message": result.message,
     })
     _publish_active(app)
+
+
+def _handle_show_underconstrained(app: adsk.core.Application) -> None:
+    # Guard: executeTextCommand only works inside sketch edit context (M-11).
+    if scanner.active_sketch(app) is None:
+        messaging.send(_palette, messaging.PY_ACTION_RESULT, {
+            "action": messaging.ACTION_SHOW_UNDERCONSTRAINED,
+            "ok": False,
+            "message": "No active sketch.",
+        })
+        return
+    try:
+        result = app.executeTextCommand("Sketch.ShowUnderconstrained")
+        msg = str(result).strip() if result else "No underconstrained entities."
+        messaging.send(_palette, messaging.PY_ACTION_RESULT, {
+            "action": messaging.ACTION_SHOW_UNDERCONSTRAINED,
+            "ok": True,
+            "message": msg,
+        })
+    except Exception as exc:
+        messaging.send(_palette, messaging.PY_ACTION_RESULT, {
+            "action": messaging.ACTION_SHOW_UNDERCONSTRAINED,
+            "ok": False,
+            "message": f"Show underconstrained failed: {exc}",
+        })
 
 
 def _entities_for_row(constraint) -> list:

@@ -239,7 +239,7 @@ def _b_offset(c, lab):
             expr = distance.expression
     except Exception:
         expr = "?"
-    return ScanResult(f"Offset {n}→{m} curves @ {expr}", chips, [])
+    return ScanResult(f"Offset ({n}→{m} curves, {expr})", chips, [])
 
 
 def _b_polygon(c, lab):
@@ -346,6 +346,35 @@ _EMPTY_LABELER = _NullLabeler()
 # --- Dimension dispatch (smaller, uniform shape) ------------------------
 
 
+# Per-type entity accessor names for sketch dimensions.
+# Types absent from this map fall back to ("entityOne", "entityTwo").
+_DIM_ACCESSORS: dict[str, tuple[str, ...]] = {
+    "adsk::fusion::SketchAngularDimension":                             ("lineOne", "lineTwo"),
+    "adsk::fusion::SketchConcentricCircleDimension":                    ("circleOne", "circleTwo"),
+    "adsk::fusion::SketchDiameterDimension":                            ("entity",),
+    "adsk::fusion::SketchDistanceBetweenLineAndPlanarSurfaceDimension": ("line",),
+    "adsk::fusion::SketchDistanceBetweenTwoLinesDimension":             ("lineOne", "lineTwo"),
+    "adsk::fusion::SketchEllipseMajorRadiusDimension":                  ("ellipse",),
+    "adsk::fusion::SketchEllipseMinorRadiusDimension":                  ("ellipse",),
+    "adsk::fusion::SketchRadialDimension":                              ("entity",),
+}
+_DIM_ACCESSOR_DEFAULT = ("entityOne", "entityTwo")
+
+
+def _entities_from_dim(dim, obj_type: str) -> list:
+    """Return sketch entities for a dimension using type-specific accessors,
+    falling back to entityOne/entityTwo if the primary accessors yield nothing."""
+    accessor_names = _DIM_ACCESSORS.get(obj_type, _DIM_ACCESSOR_DEFAULT)
+    ents = [e for attr in accessor_names
+            for e in [_safe(lambda a=attr: getattr(dim, a, None))]
+            if e is not None]
+    if not ents and accessor_names is not _DIM_ACCESSOR_DEFAULT:
+        ents = [e for attr in _DIM_ACCESSOR_DEFAULT
+                for e in [_safe(lambda a=attr: getattr(dim, a, None))]
+                if e is not None]
+    return ents
+
+
 _DIMENSION_KINDS: dict[str, str] = {
     "adsk::fusion::SketchAngularDimension": "Angular",
     "adsk::fusion::SketchConcentricCircleDimension": "Concentric circles",
@@ -429,6 +458,57 @@ def _find_offset_constraint_for_dim(dim, sketch):
     return None
 
 
+def _find_offset_dim_for_constraint(c, sketch):
+    """Find the SketchOffsetCurvesDimension governing OffsetConstraint c.
+    Mirrors _find_offset_constraint_for_dim in the reverse direction."""
+    if sketch is None:
+        return None
+    offset_dims: list = []
+    try:
+        dims = sketch.sketchDimensions
+        for i in range(dims.count):
+            d = dims.item(i)
+            if getattr(d, "objectType", "") == "adsk::fusion::SketchOffsetCurvesDimension":
+                offset_dims.append(d)
+    except Exception:
+        return None
+    if not offset_dims:
+        return None
+
+    c_dist = _safe(lambda: c.distance)
+    c_tok = _safe(lambda: c_dist.entityToken) if c_dist is not None else None
+    c_name = _safe(lambda: c_dist.name) if c_dist is not None else None
+
+    if c_tok:
+        for d in offset_dims:
+            if _safe(lambda d=d: d.parameter.entityToken) == c_tok:
+                return d
+    if c_name:
+        for d in offset_dims:
+            if _safe(lambda d=d: d.parameter.name) == c_name:
+                return d
+    if len(offset_dims) == 1:
+        return offset_dims[0]
+    return None
+
+
+def patch_offset_label(result: ScanResult, c, sketch) -> ScanResult:
+    """Replace ', ?)' distance placeholder with the real expression from
+    c.distance or the matching SketchOffsetCurvesDimension."""
+    if not result.label.endswith(", ?)"):
+        return result
+    d = _safe(lambda: c.distance)
+    expr = _safe(lambda: d.expression) if d is not None else None
+    if expr is None:
+        dim = _find_offset_dim_for_constraint(c, sketch)
+        if dim is not None:
+            expr = _safe(lambda: dim.parameter.expression)
+    if expr is None:
+        return result
+    new_label = result.label[:-len(", ?)")] + f", {expr})"
+    return ScanResult(new_label, result.entities, result.errors)
+
+
 def describe_dimension(dim, lab: EntityLabeler, sketch=None) -> ScanResult:
     obj_type = getattr(dim, "objectType", "")
     kind_label = _DIMENSION_KINDS.get(obj_type, obj_type.split("::")[-1] or "Dimension")
@@ -455,8 +535,9 @@ def describe_dimension(dim, lab: EntityLabeler, sketch=None) -> ScanResult:
             pass
         return ScanResult(f"{kind_label} ({n} curves) = {expr}", chips, [])
 
-    e1 = _safe(lambda: dim.entityOne)
-    e2 = _safe(lambda: dim.entityTwo)
+    ents = _entities_from_dim(dim, obj_type)
+    e1 = ents[0] if ents else None
+    e2 = ents[1] if len(ents) > 1 else None
     expr = "?"
     try:
         expr = dim.parameter.expression

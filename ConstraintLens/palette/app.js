@@ -12,6 +12,7 @@
         selectEntities: "selectEntities",
         selectConstraint: "selectConstraint",
         deleteConstraint: "deleteConstraint",
+        showUnderconstrained: "showUnderconstrained",
     };
 
     const PY_TO_JS = {
@@ -53,12 +54,15 @@
     const state = {
         snapshot: null,
         loaded: false,
+        filter: "",
     };
 
     const els = {
         root: document.getElementById("root"),
         status: document.getElementById("status"),
         refresh: document.getElementById("refresh"),
+        highlightUnder: document.getElementById("highlight-under"),
+        filter: document.getElementById("filter"),
     };
 
     // --- Outgoing messages -----------------------------------------------
@@ -72,6 +76,11 @@
     }
 
     els.refresh.addEventListener("click", () => send(JS_TO_PY.requestRefresh, {}));
+    els.highlightUnder.addEventListener("click", () => send(JS_TO_PY.showUnderconstrained, {}));
+    els.filter.addEventListener("input", () => {
+        state.filter = els.filter.value.trim().toLowerCase();
+        renderSnapshot();
+    });
 
     // --- Incoming messages ----------------------------------------------
 
@@ -97,11 +106,13 @@
 
     function onData(payload) {
         state.snapshot = payload;
+        els.highlightUnder.disabled = false;
         renderSnapshot();
     }
 
     function onNoActiveSketch(payload) {
         state.snapshot = null;
+        els.highlightUnder.disabled = true;
         setStatus(payload.reason || "No active sketch.", "warn");
         els.root.innerHTML = `<div class="empty">${escape(payload.reason || "Open a sketch for edit to see its constraints.")}</div>`;
     }
@@ -113,6 +124,14 @@
     function onActionResult(payload) {
         const cls = payload.ok ? "ok" : "error";
         showToast(payload.message || (payload.ok ? "OK" : "Failed"), cls);
+    }
+
+    // --- Filtering -------------------------------------------------------
+
+    function matchesFilter(row, q) {
+        if (!q) return true;
+        return (row.label || "").toLowerCase().includes(q)
+            || (row.kind || "").toLowerCase().includes(q);
     }
 
     // --- Rendering -------------------------------------------------------
@@ -132,25 +151,44 @@
             : "No active sketch.";
         setStatus(statusText, fully ? "ok" : "warn");
 
+        const q = state.filter;
+        const allC = snap.constraints || [];
+        const allD = snap.dimensions || [];
+        const allJ = snap.implicitJoins || [];
+        const c = allC.filter(r => matchesFilter(r, q));
+        const d = allD.filter(r => matchesFilter(r, q));
+        const j = allJ.filter(r => matchesFilter(r, q));
+
         const parts = [];
-        const c = snap.constraints || [];
-        const d = snap.dimensions || [];
-        const j = snap.implicitJoins || [];
 
         if (c.length === 0 && d.length === 0 && j.length === 0) {
-            parts.push(`<div class="empty">This sketch has no constraints or dimensions yet.</div>`);
+            const totalAll = allC.length + allD.length + allJ.length;
+            if (q && totalAll > 0) {
+                parts.push(`<div class="empty">No matches for &ldquo;${escape(q)}&rdquo;.</div>`);
+            } else {
+                parts.push(`<div class="empty">This sketch has no constraints or dimensions yet.</div>`);
+            }
         }
 
         if (c.length) {
-            parts.push(`<div class="section-header">Geometric constraints (${c.length})</div>`);
+            const label = q
+                ? `Geometric constraints (${c.length} of ${allC.length})`
+                : `Geometric constraints (${allC.length})`;
+            parts.push(`<div class="section-header">${label}</div>`);
             for (const row of c) parts.push(rowHTML(row));
         }
         if (d.length) {
-            parts.push(`<div class="section-header">Dimensions (${d.length})</div>`);
+            const label = q
+                ? `Dimensions (${d.length} of ${allD.length})`
+                : `Dimensions (${allD.length})`;
+            parts.push(`<div class="section-header">${label}</div>`);
             for (const row of d) parts.push(rowHTML(row));
         }
         if (j.length) {
-            parts.push(`<div class="section-header">Endpoint joins (${j.length})</div>`);
+            const label = q
+                ? `Endpoint joins (${j.length} of ${allJ.length})`
+                : `Endpoint joins (${allJ.length})`;
+            parts.push(`<div class="section-header">${label}</div>`);
             for (const row of j) parts.push(rowHTML(row));
         }
 

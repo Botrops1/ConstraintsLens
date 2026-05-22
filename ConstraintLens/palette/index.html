@@ -8,8 +8,16 @@
 <body>
     <header class="toolbar">
         <div class="status" id="status">Loading…</div>
+        <button class="btn" id="highlight-under"
+                title="Highlight underconstrained entities on the canvas"
+                disabled>Show u/c</button>
         <button class="btn" id="refresh" title="Re-scan the active sketch">Refresh</button>
     </header>
+
+    <div class="filter-bar">
+        <input type="search" id="filter" placeholder="Filter by label or type…"
+               autocomplete="off" spellcheck="false">
+    </div>
 
     <main id="root">
         <div class="empty">Loading…</div>

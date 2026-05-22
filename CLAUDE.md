@@ -3,11 +3,11 @@
 ## Current Status
 
 **Working on:** v1 polish backlog.
-**Version:** 0.1.5 released — GitHub Release published with `ConstraintLens-v0.1.5.zip`.
+**Version:** 0.1.6 released — backlog #1, #2, #3, #9, #10 shipped. Previous: 0.1.5 (`ConstraintLens-v0.1.5.zip` on GitHub Releases).
 **Next step:** Pick next backlog item (see v1 Polish Backlog below).
 **Blocked by:** Nothing.
 
-### What's verified working (PC tests 1–5, all passed)
+### What's verified working (PC tests 1–5 + v0.1.6 session)
 - Add-in loads, palette docks, populates without Refresh click.
 - Geometric constraints list with click-to-select, ⌖ select-constraint, × delete + auto-refresh.
 - Dimensions list (Angular, Linear, Diameter, etc.) with parameter expression.
@@ -19,13 +19,18 @@
 - M-1 defensive guard (MidPoint accessor) — both rows render; no crash.
 - OffsetConstraint ACCESSOR error fixed in 0.1.2.
 - Auto-load fixed in 0.1.2 (palette populated without Refresh click).
+- Button relocated to `SketchConstraintsPanel` (Sketch tab → Constraints panel). ✓ backlog #1
+- "Show u/c" button highlights underconstrained entities on canvas via `executeTextCommand("Sketch.ShowUnderconstrained")`; shows result string as toast. ✓ backlog #2
+- Filter bar narrows rows by label or constraint type (case-insensitive, client-side); section headers show filtered count. ✓ backlog #3
+- OffsetConstraint label normalised: `Offset (1→1 curves, 30 mm)` style. ✓ backlog #9
+- Dimension entity chips show friendly names ("Line 2 → Line 3") for Angular, Diameter, Radial and other type-specific-accessor subtypes. ✓ backlog #10
 
 ### What was fixed in 0.1.5 (verified PC test 5)
 - **SketchOffsetCurvesDimension matching, hardened** — `_find_offset_constraint_for_dim` stacks four strategies because `OffsetConstraint.distance` returns None on the January 2026 build: (1) parameter entityToken, (2) parameter name, (3) positional pairing, (4) single-constraint fallback. Once matched, constraint's `parentCurves` + `childCurves` become the dimension's chips.
 
 ### Known sub-issues to keep on radar
 - Offset-of-spline creates internal control geometry that Fusion doesn't render. User reports a tangent constraint on a line that isn't visible on the canvas. The row still appears in ConstraintLens but the line can't be selected by the user. See backlog #8.
-- `OffsetConstraint.distance` returns None in the January 2026 build (the `@ ?` in the offset row label). The label-only consequence is cosmetic; functionality routes around it via the multi-strategy match above.
+- `OffsetConstraint.distance` returns None in the January 2026 build. The label-only consequence is now fully resolved via the matched dimension's parameter expression (backlog #9 fix).
 
 ---
 
@@ -35,7 +40,7 @@ A Fusion 360 Python add-in that docks a panel listing every constraint in the ac
 
 - **Language:** Python 3.14 (Fusion January 2026 build), vanilla JS palette (no framework).
 - **Distribution:** GitHub Releases only (zipped `ConstraintLens/` folder). No App Store.
-- **Workspace:** Solid workspace only (MVP). Button lives in `SolidScriptsAddinsPanel` ("Add-ins" tab).
+- **Workspace:** Solid workspace only (MVP). Button lives in `SketchConstraintsPanel` (Sketch tab → Constraints panel).
 - **Spec:** `SPEC.md` — complete, all 5 open questions resolved.
 
 ---
@@ -99,14 +104,15 @@ tests/
 
 ## v1 Polish Backlog (post-MVP, not started)
 
-1. Move button to `SketchConstraintsPanel` for in-sketch discoverability.
-2. "Show underconstrained" button (Q2 confirmed it works; enable only in sketch edit).
-3. Filter / search by constraint type.
+1. ~~Move button to `SketchConstraintsPanel` for in-sketch discoverability.~~ **DONE ✓**
+2. ~~"Show underconstrained" button~~ — **DONE ✓** "Show u/c" button in toolbar; calls `executeTextCommand("Sketch.ShowUnderconstrained")`; result surfaced as toast.
+3. ~~Filter / search by constraint type~~ — **DONE ✓** Filter bar below toolbar; client-side filtering by label/kind; section headers show `(N of M)` when active.
 4. Constraint icons matching Fusion's own glyph set.
 5. Bulk delete with confirmation.
 6. Inline editable dimension expression.
 7. **Sketch-→-palette reverse lookup** — user picks an entity on the canvas, ConstraintLens scrolls to / highlights every row that references it. Lets the user start from the geometry rather than the list.
 8. **Mark invisible / unselectable entities** — Fusion creates internal control geometry for some operations (e.g. spline offsets create a hidden line that participates in a tangent constraint but isn't drawn on the canvas). Detect via `entity.isVisible` (or class-based heuristic) and badge the row / chip so users know the row references geometry they can't click.
-9. **Normalize OffsetConstraint label** — current label `Offset 1→1 curves @ ?` is technical; the `@ ?` (from broken `.distance` accessor) is ugly. Replace with the offset distance from the matched SketchOffsetCurvesDimension's parameter (e.g. `Offset (1→1 curves, 30 mm)`).
-10. **Dimension entity chip labels — show "Line 2" not "SketchLine"** — `describe_dimension` assumes all dimension subtypes expose `entityOne`/`entityTwo`, but some use type-specific accessors (e.g. `SketchAngularDimension` likely exposes `.lineOne`/`.lineTwo`, same pattern as geometric constraints). When `entityOne` returns `None`, chips are created with class-name fallback labels ("SketchLine", "SketchCircle") instead of friendly names ("Line 2", "Circle 1"). Selection still works because the click-time `_entities_for_row` fallback does a broad attribute scan. Fix: build a per-type accessor map for dimensions (mirroring the geometric constraint dispatch table in `dispatch.py`) so each dimension type names its own entity accessors. Verified affected: Angular, Diameter — assume others with type-specific accessors are also affected.
+9. ~~**Normalize OffsetConstraint label**~~ — **DONE ✓** Label is now `Offset (1→1 curves, 30 mm)` style, pulling expression from the matched SketchOffsetCurvesDimension.
+10. ~~**Dimension entity chip labels — show "Line 2" not "SketchLine"**~~ — **DONE ✓** `_DIM_ACCESSORS` map added to `dispatch.py`; Angular/Diameter/Radial and others now use type-specific accessors with `entityOne`/`entityTwo` fallback.
 11. ~~**Verify fully-constrained green status**~~ — **VERIFIED PC test (session 5+).** Banner turns green and reads "— fully constrained" correctly.
+12. **Canvas-to-palette entity name lookup** — user clicks a sketch entity on the canvas, sees its ConstraintLens name (e.g. "Line 3") somewhere in the UI, then can type that name into the filter bar to find all rows that reference it. Complement to backlog #7 (reverse lookup that auto-scrolls); this simpler variant just exposes the name. Could be implemented as a hover tooltip on canvas selection events, a small "selected entity" readout in the palette toolbar, or by reacting to Fusion's `activeSelections` change event and displaying the resolved label.

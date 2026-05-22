@@ -225,3 +225,31 @@ main {
 .toast.show { opacity: 1; }
 .toast.ok { border-color: var(--ok); }
 .toast.error { border-color: var(--error); }
+
+.filter-bar {
+    padding: 5px 10px;
+    background: var(--bg-elev);
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+}
+
+.filter-bar input[type="search"] {
+    width: 100%;
+    background: var(--bg-row);
+    border: 1px solid var(--border);
+    color: var(--fg);
+    padding: 4px 8px;
+    font-size: 11px;
+    font-family: inherit;
+    border-radius: 2px;
+    outline: none;
+    -webkit-appearance: none;
+}
+
+.filter-bar input[type="search"]:focus {
+    border-color: var(--accent);
+}
+
+.filter-bar input[type="search"]::placeholder {
+    color: var(--fg-muted);
+}

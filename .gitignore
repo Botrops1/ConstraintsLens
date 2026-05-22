@@ -11,3 +11,6 @@ __pycache__/
 
 # Ruff / linter caches
 .ruff_cache/
+
+# IDE
+.vscode/
