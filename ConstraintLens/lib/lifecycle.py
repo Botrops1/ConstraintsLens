@@ -122,8 +122,45 @@ def _copy_native_icons(ui: adsk.core.UserInterface, addin_dir: str) -> None:
                     break
                 except Exception:
                     pass  # try next size; if all fail → JS onerror uses inline SVG
+
+        # Dimension icon — try known sketch dimension command IDs, then scan base.
+        _copy_dimension_icon(ui, base, icons_dir)
     except Exception:
         pass  # entire copy step is best-effort; SVG fallback covers all types
+
+
+def _copy_dimension_icon(ui: adsk.core.UserInterface, sketch_base: str, icons_dir: str) -> None:
+    """Copy a Fusion sketch dimension icon to icons/dimension.png."""
+    dst = os.path.join(icons_dir, "dimension.png")
+    # Try known Fusion command IDs for sketch dimension tools.
+    for cmd_id in ("SketchDimension", "SketchGeneralDimension", "SketchLinearDimension"):
+        cmd = ui.commandDefinitions.itemById(cmd_id)
+        if cmd is None:
+            continue
+        folder = (cmd.resourceFolder or "").rstrip("/\\")
+        if not os.path.isdir(folder):
+            continue
+        for size in ("32x32.png", "16x16.png"):
+            try:
+                shutil.copy2(os.path.join(folder, size), dst)
+                return
+            except Exception:
+                pass
+    # Fallback: scan sketch resource base for a subfolder with "dimension" in name.
+    try:
+        for entry in sorted(os.listdir(sketch_base)):
+            if "dimension" in entry.lower() and "cursor" not in entry.lower():
+                folder = os.path.join(sketch_base, entry)
+                if not os.path.isdir(folder):
+                    continue
+                for size in ("32x32.png", "16x16.png"):
+                    try:
+                        shutil.copy2(os.path.join(folder, size), dst)
+                        return
+                    except Exception:
+                        pass
+    except Exception:
+        pass
 
 
 # --- Command + button ---------------------------------------------------

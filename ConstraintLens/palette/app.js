@@ -123,6 +123,13 @@
 
         ImplicitCoincidentJoin:
             _S + _L(2,13,8,8,1.5) + _L(14,3,8,8,1.5) + _C(8,8,2.5,true) + _E,
+
+        // Generic fallback for all dimension rows (glyph stem "dimension").
+        dimension:
+            _S + _L(3,6,3,14,1.5) + _L(13,6,13,14,1.5) + _L(3,10,13,10,1.5)
+            + `<path d="M6 8 L3 10 L6 12" stroke="currentColor" stroke-width="1" fill="none" stroke-linecap="round" stroke-linejoin="round"/>`
+            + `<path d="M10 8 L13 10 L10 12" stroke="currentColor" stroke-width="1" fill="none" stroke-linecap="round" stroke-linejoin="round"/>`
+            + _E,
     };
 
     // --- State -----------------------------------------------------------
@@ -381,8 +388,12 @@
     }, true);
 
     function rowHTML(row) {
-        const iconImg = TYPE_ICONS[row.kind]
-            ? `<img class="ci" src="icons/${row.kind}.png" data-k="${escape(row.kind)}" width="24" height="24" alt="">`
+        // Prefer kind-specific icon; fall back to glyph stem (e.g. "dimension").
+        const _glyphStem = (row.glyph || "").replace(/\.svg$/, "");
+        const iconKey = TYPE_ICONS[row.kind] ? row.kind
+                      : (TYPE_ICONS[_glyphStem] ? _glyphStem : null);
+        const iconImg = iconKey
+            ? `<img class="ci" src="icons/${iconKey}.png" data-k="${escape(iconKey)}" width="24" height="24" alt="">`
             : `<span style="line-height:24px">·</span>`;
         const glyphAttrs = (!row.isPseudo && row.token)
             ? ` data-action="selectConstraint" data-token="${escape(row.token || "")}" title="Select the constraint object itself"`
