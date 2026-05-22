@@ -36,18 +36,25 @@ body {
     flex-direction: column;
 }
 
+.sketch-name-bar {
+    padding: 7px 10px;
+    background: var(--bg-elev);
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+}
+
 .toolbar {
     display: flex;
     align-items: center;
-    gap: 8px;
-    padding: 8px 10px;
+    flex-wrap: wrap;
+    gap: 6px;
+    padding: 5px 10px;
     background: var(--bg-elev);
     border-bottom: 1px solid var(--border);
     flex-shrink: 0;
 }
 
 .status {
-    flex: 1;
     font-size: 11px;
     color: var(--fg-muted);
     overflow: hidden;
