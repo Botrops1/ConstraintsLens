@@ -3,8 +3,8 @@
 ## Current Status
 
 **Working on:** v1 polish backlog.
-**Version:** 0.2.3 (manifest + commit must always match) — polygon fixes, offset dblclick fix, chip→select+filter.
-**Next step:** Pick next backlog item (see v1 Polish Backlog below).
+**Version:** 0.2.8 (manifest + commit must always match) — all backlog items #13–#21 done and verified.
+**Next step:** Pick next backlog item or plan v1 release.
 **Convention:** Every commit that bumps the version string must also update `ConstraintLens/ConstraintLens.manifest` `"version"` field so Fusion shows the correct version.
 **Blocked by:** Nothing.
 
@@ -124,7 +124,7 @@ tests/
 15. ~~**Editable configurable elements**~~ — **DONE ✓** (pending PC test). Circular pattern: inline edit `quantity` (Count) and `totalAngle` (Angle). Rectangular pattern: inline edit `quantityOne/Two` (Count 1/2) and `distanceOne/Two` (Spacing 1/2). All via `ModelParameter.expression`. PolygonConstraint has no writable params (API exposes only `lines`/`points` geometry) — shows read-only Sides count instead.
 16. ~~**Entity chip click → filter**~~ — **DONE ✓** Clicking any entity chip sets filter bar to that label and re-renders. Chips have hover accent border and pointer cursor. `data-label` attribute avoids textContent issues with nested "hidden" badge.
 17. **Double-click to edit other dimension types** — Angular, Linear, Diameter, Radial, etc. currently have no double-click dialog. Need to discover correct command IDs (probe required: scan all `SketchDimension*` command defs). Create a test script that builds one of every dimension type for systematic testing.
-18. ~~**Fusion UI icons for patterns and polygons**~~ — **DONE ✓** `CircularPatternConstraint` → `sketch/pattern_circular`, `RectangularPatternConstraint` → `sketch/pattern_rectangular` added to `_ICON_MAP`. `PolygonConstraint` → `Constraint_Polygon` was already there. Probe confirmed `Constraint_Polygon` is the correct constraint glyph (not the creation-tool variants inscribed/circum/edge).
+18. ~~**Fusion UI icons for patterns, polygons, and dimensions**~~ — **DONE ✓** `CircularPatternConstraint` → `sketch/pattern_circular`, `RectangularPatternConstraint` → `sketch/pattern_rectangular` added to `_ICON_MAP`. `PolygonConstraint` → `Constraint_Polygon` was already there. Dimension rows now use a `"dimension"` glyph stem resolved via `_copy_dimension_icon()` (scans known command IDs then sketch resource base). All copies prefer `*-dark.png` variants (white glyphs for dark palette); `rowHTML` falls back to glyph stem when `row.kind` has no TYPE_ICONS entry. Verified ✓ v0.2.8.
 19. ~~**Larger constraint icons in rows**~~ — **DONE ✓** Icons increased to 24×24 px. SVG fallbacks updated (viewBox kept at 16×16, rendered size 24). PNG copy now prefers 32×32 source (scales down cleanly) with 16×16 fallback.
 20. ~~**"Select constraint object" moved to icon**~~ — **DONE ✓** Clicking the constraint icon (left glyph) now triggers `selectConstraint` directly. The separate ⌖ button on the right has been removed. Pseudo/join rows keep the ⊘ lock indicator unchanged.
 21. **Chip click → also select object on canvas** — **DONE ✓** Chip now carries `data-token`; click handler sends `selectEntities` in addition to setting the filter.
