@@ -16,6 +16,7 @@ ACTION_BULK_DELETE = "bulkDelete"
 ACTION_EDIT_DIMENSION = "editDimension"
 ACTION_FIND_SELECTED = "findSelected"
 ACTION_OPEN_EDIT_DIALOG = "openEditDialog"
+ACTION_EDIT_PARAMETER = "editParameter"
 
 PY_ACTION_DATA = "data"
 PY_ACTION_NO_ACTIVE_SKETCH = "noActiveSketch"

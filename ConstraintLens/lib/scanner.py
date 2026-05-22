@@ -118,8 +118,52 @@ def _build_constraint_rows(
             "isDeletable": is_deletable,
             "isPseudo": False,
             "errors": result.errors,
+            "parameters": _extract_constraint_params(c, kind),
         })
     return rows
+
+
+def _extract_constraint_params(c, kind: str) -> list[dict]:
+    """Return editable ModelParameter entries for pattern constraints (#15).
+    PolygonConstraint has no ModelParameter properties; return side count as
+    a read-only info entry (no token = no pencil shown in UI).
+    """
+    if kind == "CircularPatternConstraint":
+        return _read_model_params(c, [
+            ("quantity",   "Count"),
+            ("totalAngle", "Angle"),
+        ])
+    if kind == "RectangularPatternConstraint":
+        return _read_model_params(c, [
+            ("quantityOne",  "Count 1"),
+            ("quantityTwo",  "Count 2"),
+            ("distanceOne",  "Spacing 1"),
+            ("distanceTwo",  "Spacing 2"),
+        ])
+    if kind == "PolygonConstraint":
+        try:
+            sides = len(list(c.lines))
+            return [{"label": "Sides", "token": "", "expression": str(sides)}]
+        except Exception:
+            return []
+    return []
+
+
+def _read_model_params(c, attr_pairs: list[tuple[str, str]]) -> list[dict]:
+    result = []
+    for attr_name, label in attr_pairs:
+        try:
+            param = getattr(c, attr_name)
+            if param is None:
+                continue
+            result.append({
+                "label": label,
+                "token": token_of(param) or "",
+                "expression": param.expression,
+            })
+        except Exception:
+            continue
+    return result
 
 
 def _scan_dimensions(sketch: adsk.fusion.Sketch, lab: EntityLabeler) -> list[dict]:

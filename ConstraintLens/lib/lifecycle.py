@@ -277,6 +277,10 @@ def _on_palette_message(action: str, raw: str) -> None:
         _handle_open_edit_dialog(app, payload)
         return
 
+    if action == messaging.ACTION_EDIT_PARAMETER:
+        _handle_edit_parameter(app, payload)
+        return
+
     # Unknown action — log and ignore (forward-compat per SPEC.md section 7).
 
 
@@ -421,23 +425,23 @@ def _handle_show_underconstrained(app: adsk.core.Application) -> None:
         })
 
 
-# Command strings discovered by tests/probe_patterns/probe_patterns.py.
-# Replace TODOs once probe results are back.
+# commandDefinition IDs confirmed by tests/probe_patterns/probe_patterns.py section A.
+# Use commandDefinitions.itemById(id).execute() — executeTextCommand does not work for these.
 _EDIT_DIALOG_COMMANDS: dict[str, str] = {
-    "SketchOffsetCurvesDimension":  "TODO_offset_edit_command",
-    "CircularPatternConstraint":    "TODO_circular_pattern_edit_command",
-    "RectangularPatternConstraint": "TODO_rectangular_pattern_edit_command",
+    "SketchOffsetCurvesDimension":  "OffsetSketchEdit",
+    "CircularPatternConstraint":    "SketchPatternCircularEdit",
+    "RectangularPatternConstraint": "SketchRectangularPatternEdit",
 }
 
 
 def _handle_open_edit_dialog(app: adsk.core.Application, payload: dict) -> None:
     kind = payload.get("kind") or ""
-    cmd_str = _EDIT_DIALOG_COMMANDS.get(kind)
-    if not cmd_str or cmd_str.startswith("TODO"):
+    cmd_id = _EDIT_DIALOG_COMMANDS.get(kind)
+    if not cmd_id:
         messaging.send(_palette, messaging.PY_ACTION_RESULT, {
             "action": messaging.ACTION_OPEN_EDIT_DIALOG,
             "ok": False,
-            "message": f"Edit dialog for {kind} not yet configured (pending probe).",
+            "message": f"No edit dialog configured for {kind}.",
         })
         return
     if scanner.active_sketch(app) is None:
@@ -447,15 +451,58 @@ def _handle_open_edit_dialog(app: adsk.core.Application, payload: dict) -> None:
             "message": "No active sketch.",
         })
         return
+
+    # Select the entity so the edit command has context.
+    ui = app.userInterface
+    design = adsk.fusion.Design.cast(app.activeProduct)
+    row_key = payload.get("rowKey") or ""
+    if row_key and design:
+        entity = tokens.resolve(design, row_key)
+        if entity is not None:
+            # For offset dimensions, select the underlying OffsetConstraint.
+            if kind == "SketchOffsetCurvesDimension":
+                try:
+                    dim = adsk.fusion.SketchOffsetCurvesDimension.cast(entity)
+                    if dim and dim.offsetConstraint:
+                        entity = dim.offsetConstraint
+                except Exception:
+                    pass
+            try:
+                selection.select_constraint(ui, entity)
+            except Exception:
+                pass
+
     try:
-        app.executeTextCommand(cmd_str)
-        # No result message — the dialog opens on the canvas; silence is success.
+        cmd = ui.commandDefinitions.itemById(cmd_id)
+        if cmd is None:
+            messaging.send(_palette, messaging.PY_ACTION_RESULT, {
+                "action": messaging.ACTION_OPEN_EDIT_DIALOG,
+                "ok": False,
+                "message": f"Command '{cmd_id}' not found in this Fusion build.",
+            })
+            return
+        cmd.execute()
+        # Success — dialog opens on canvas; no palette message needed.
     except Exception as exc:
         messaging.send(_palette, messaging.PY_ACTION_RESULT, {
             "action": messaging.ACTION_OPEN_EDIT_DIALOG,
             "ok": False,
             "message": f"Open dialog failed: {exc}",
         })
+
+
+def _handle_edit_parameter(app: adsk.core.Application, payload: dict) -> None:
+    token = payload.get("token") or ""
+    expression = payload.get("expression") or ""
+    if not token or not expression:
+        return
+    result = actions.edit_parameter(app, token, expression)
+    messaging.send(_palette, messaging.PY_ACTION_RESULT, {
+        "action": messaging.ACTION_EDIT_PARAMETER,
+        "ok": result.ok,
+        "message": result.message,
+    })
+    _publish_active(app)
 
 
 def _handle_edit_dimension(app: adsk.core.Application, payload: dict) -> None:

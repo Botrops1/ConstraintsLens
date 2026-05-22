@@ -17,6 +17,7 @@
         editDimension: "editDimension",
         findSelected: "findSelected",
         openEditDialog: "openEditDialog",
+        editParameter: "editParameter",
     };
 
     const PY_TO_JS = {
@@ -405,6 +406,20 @@
                </div>`
             : "";
 
+        // Pattern / polygon editable parameters (#15).
+        const paramsHTML = (row.parameters || []).map(p => {
+            const hasToken = p.token && p.token.length > 0;
+            const pencil = hasToken
+                ? `<button class="btn-edit" data-action="editParam" data-token="${escape(p.token)}"
+                           title="Edit ${escape(p.label)} (Enter to commit, Esc to cancel)">✎</button>`
+                : "";
+            return `<div class="dim-expr-wrap">
+                <span class="dim-expr-lbl">${escape(p.label)}:</span>
+                <span class="dim-expr">${escape(p.expression)}</span>
+                ${pencil}
+            </div>`;
+        }).join("");
+
         // Entity tokens for token-based selection (bypasses accessor re-scan).
         const entityTokensJson = JSON.stringify(
             (row.entities || []).map(e => e.token || "").filter(t => t)
@@ -437,6 +452,7 @@
                 <div class="row-body">
                     <div class="row-label">${escape(row.label || "")}</div>
                     ${exprHTML}
+                    ${paramsHTML}
                     <div class="row-meta">
                         <span class="kind">${escape(row.kind || "")}</span>
                         ${badges.join("")}
@@ -517,7 +533,7 @@
             return;
         }
 
-        if (action === "editExpr") {
+        if (action === "editExpr" || action === "editParam") {
             evt.stopPropagation();
             startEditExpr(actionEl);
             return;
@@ -544,6 +560,9 @@
         if (!span) return;
         const token = editBtn.getAttribute("data-token") || "";
         const currentVal = span.textContent || "";
+        // editParam buttons use editParameter action; editExpr use editDimension.
+        const pyAction = editBtn.getAttribute("data-action") === "editParam"
+            ? JS_TO_PY.editParameter : JS_TO_PY.editDimension;
 
         const input = document.createElement("input");
         input.type = "text";
@@ -560,7 +579,7 @@
             const newExpr = input.value.trim();
             if (!newExpr) { cancelEdit(); return; }
             input.disabled = true;
-            send(JS_TO_PY.editDimension, { token, expression: newExpr });
+            send(pyAction, { token, expression: newExpr });
             // Python always sends a data refresh after, which rebuilds the DOM.
         }
 

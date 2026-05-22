@@ -14,6 +14,24 @@ class ActionResult:
     message: str
 
 
+def edit_parameter(app: adsk.core.Application, token: str, expression: str) -> ActionResult:
+    """Edit a ModelParameter directly by its entity token (#15 pattern params)."""
+    design = adsk.fusion.Design.cast(app.activeProduct)
+    if not design:
+        return ActionResult(False, "No active design.")
+    entity = tokens.resolve(design, token)
+    if entity is None:
+        return ActionResult(False, "Parameter not found.")
+    param = adsk.fusion.ModelParameter.cast(entity)
+    if param is None:
+        return ActionResult(False, "Entity is not a ModelParameter.")
+    try:
+        param.expression = expression.strip()
+        return ActionResult(True, f"Updated to {param.expression}.")
+    except Exception as exc:
+        return ActionResult(False, f"Edit failed: {exc}")
+
+
 def edit_dimension(app: adsk.core.Application, token: str, expression: str) -> ActionResult:
     design = adsk.fusion.Design.cast(app.activeProduct)
     if not design:

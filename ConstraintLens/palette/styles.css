@@ -308,6 +308,13 @@ main {
     font-variant-numeric: tabular-nums;
 }
 
+.dim-expr-lbl {
+    font-size: 10px;
+    color: var(--fg-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+}
+
 .btn-edit {
     background: none;
     border: none;
