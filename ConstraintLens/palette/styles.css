@@ -63,9 +63,17 @@ body {
 }
 
 .sketch-name-bar {
-    padding: 7px 10px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 5px 8px;
     background: var(--bg-elev);
     border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+}
+
+.sketch-name-bar .btn {
+    padding: 2px 6px;
     flex-shrink: 0;
 }
 
@@ -81,6 +89,8 @@ body {
 }
 
 .status {
+    flex: 1;
+    min-width: 0;
     font-size: 11px;
     color: var(--fg-muted);
     overflow: hidden;
@@ -113,6 +123,11 @@ main {
     flex: 1;
     overflow-y: auto;
 }
+
+main::-webkit-scrollbar { width: 4px; }
+main::-webkit-scrollbar-track { background: transparent; }
+main::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+main::-webkit-scrollbar-thumb:hover { background: var(--fg-muted); }
 
 .section-header {
     display: flex;
