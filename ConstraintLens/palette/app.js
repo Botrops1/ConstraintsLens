@@ -439,8 +439,9 @@
         const _glyphStem = (row.glyph || "").replace(/\.svg$/, "");
         const iconKey = TYPE_ICONS[row.kind] ? row.kind
                       : (TYPE_ICONS[_glyphStem] ? _glyphStem : null);
+        const iconSuffix = document.documentElement.getAttribute("data-theme") === "light" ? "-light" : "";
         const iconImg = iconKey
-            ? `<img class="ci" src="icons/${iconKey}.png" data-k="${escape(iconKey)}" width="24" height="24" alt="">`
+            ? `<img class="ci" src="icons/${iconKey}${iconSuffix}.png" data-k="${escape(iconKey)}" width="24" height="24" alt="">`
             : `<span style="line-height:24px">·</span>`;
         const glyphAttrs = (!row.isPseudo && row.token)
             ? ` data-action="selectConstraint" data-token="${escape(row.token || "")}" title="Select the constraint object itself"`
@@ -754,6 +755,7 @@
         document.documentElement.setAttribute("data-theme", next);
         localStorage.setItem("cl-theme", next);
         updateThemeButton(next);
+        renderSnapshot();
     });
 
     document.addEventListener("DOMContentLoaded", () => {

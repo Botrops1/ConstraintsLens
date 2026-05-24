@@ -137,16 +137,22 @@ def _copy_native_icons(ui: adsk.core.UserInterface, addin_dir: str) -> None:
         os.makedirs(icons_dir, exist_ok=True)
 
         for kind, folder_name in _ICON_MAP.items():
+            src_base = os.path.join(base, folder_name)
             dst = os.path.join(icons_dir, f"{kind}.png")
-            # Prefer dark-theme variants (white glyphs for our dark palette),
-            # 32×32 for clean downscale to 24; fall back through lighter/smaller.
+            dst_light = os.path.join(icons_dir, f"{kind}-light.png")
+            # Dark variant first (white glyphs); light variant prefers non-dark (dark glyphs).
             for size in ("32x32-dark.png", "32x32.png", "16x16-dark.png", "16x16.png"):
-                src = os.path.join(base, folder_name, size)
                 try:
-                    shutil.copy2(src, dst)
+                    shutil.copy2(os.path.join(src_base, size), dst)
                     break
                 except Exception:
                     pass  # try next size; if all fail → JS onerror uses inline SVG
+            for size in ("32x32.png", "32x32-dark.png", "16x16.png", "16x16-dark.png"):
+                try:
+                    shutil.copy2(os.path.join(src_base, size), dst_light)
+                    break
+                except Exception:
+                    pass
 
         # Dimension icon — try known sketch dimension command IDs, then scan base.
         _copy_dimension_icon(ui, base, icons_dir)
@@ -155,37 +161,43 @@ def _copy_native_icons(ui: adsk.core.UserInterface, addin_dir: str) -> None:
 
 
 def _copy_dimension_icon(ui: adsk.core.UserInterface, sketch_base: str, icons_dir: str) -> None:
-    """Copy a Fusion sketch dimension icon to icons/dimension.png."""
-    dst = os.path.join(icons_dir, "dimension.png")
-    # Try known Fusion command IDs for sketch dimension tools.
+    """Copy Fusion sketch dimension icons to icons/dimension.png and icons/dimension-light.png."""
+    # Locate source folder — try known command IDs first, then scan.
+    source_folder: str | None = None
     for cmd_id in ("SketchDimension", "SketchGeneralDimension", "SketchLinearDimension"):
         cmd = ui.commandDefinitions.itemById(cmd_id)
         if cmd is None:
             continue
         folder = (cmd.resourceFolder or "").rstrip("/\\")
-        if not os.path.isdir(folder):
-            continue
-        for size in ("32x32-dark.png", "32x32.png", "16x16-dark.png", "16x16.png"):
-            try:
-                shutil.copy2(os.path.join(folder, size), dst)
-                return
-            except Exception:
-                pass
-    # Fallback: scan sketch resource base for a subfolder with "dimension" in name.
-    try:
-        for entry in sorted(os.listdir(sketch_base)):
-            if "dimension" in entry.lower() and "cursor" not in entry.lower():
-                folder = os.path.join(sketch_base, entry)
-                if not os.path.isdir(folder):
-                    continue
-                for size in ("32x32-dark.png", "32x32.png", "16x16-dark.png", "16x16.png"):
-                    try:
-                        shutil.copy2(os.path.join(folder, size), dst)
-                        return
-                    except Exception:
-                        pass
-    except Exception:
-        pass
+        if os.path.isdir(folder):
+            source_folder = folder
+            break
+    if source_folder is None:
+        try:
+            for entry in sorted(os.listdir(sketch_base)):
+                if "dimension" in entry.lower() and "cursor" not in entry.lower():
+                    folder = os.path.join(sketch_base, entry)
+                    if os.path.isdir(folder):
+                        source_folder = folder
+                        break
+        except Exception:
+            pass
+    if source_folder is None:
+        return
+    dst = os.path.join(icons_dir, "dimension.png")
+    dst_light = os.path.join(icons_dir, "dimension-light.png")
+    for size in ("32x32-dark.png", "32x32.png", "16x16-dark.png", "16x16.png"):
+        try:
+            shutil.copy2(os.path.join(source_folder, size), dst)
+            break
+        except Exception:
+            pass
+    for size in ("32x32.png", "32x32-dark.png", "16x16.png", "16x16-dark.png"):
+        try:
+            shutil.copy2(os.path.join(source_folder, size), dst_light)
+            break
+        except Exception:
+            pass
 
 
 # --- Command + button ---------------------------------------------------
