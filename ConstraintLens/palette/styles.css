@@ -359,9 +359,9 @@ main {
     font-size: 10px;
     color: var(--accent);
     display: none;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 3px;
     flex-shrink: 0;
 }
 

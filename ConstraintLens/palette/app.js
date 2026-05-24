@@ -284,9 +284,13 @@
             }
         }
 
-        // #12 — entity name readout.
-        const labels = tokens.map(t => tokenToLabel.get(t)).filter(Boolean);
-        showEntityReadout(labels.length ? "Selected: " + labels.join(", ") : "Selected entity not in any row.");
+        // #12 — entity name readout as clickable chips.
+        const matched = tokens.filter(t => tokenToLabel.has(t)).map(t => ({ label: tokenToLabel.get(t), token: t }));
+        if (matched.length) {
+            showReadoutChips("Selected: ", matched);
+        } else {
+            showEntityReadout("Selected entity not in any row.");
+        }
 
         // #7 — collect matching row keys.
         for (const tok of tokens) {
@@ -304,8 +308,31 @@
 
     function showEntityReadout(text) {
         els.entityReadout.textContent = text;
-        els.entityReadout.style.display = text ? "block" : "none";
+        els.entityReadout.style.display = text ? "flex" : "none";
     }
+
+    function showReadoutChips(prefix, items) {
+        const prefixHTML = prefix ? `<span>${escape(prefix)}</span>` : "";
+        const chipsHTML = items.map(({label, token}) =>
+            `<span class="chip" data-label="${escape(label)}" data-token="${escape(token)}"
+                   title="Click to filter and select">${escape(label)}</span>`
+        ).join("");
+        els.entityReadout.innerHTML = prefixHTML + chipsHTML;
+        els.entityReadout.style.display = "flex";
+    }
+
+    els.entityReadout.addEventListener("click", (evt) => {
+        const chip = evt.target.closest(".chip");
+        if (!chip) return;
+        const label = chip.getAttribute("data-label") || "";
+        const token = chip.getAttribute("data-token") || "";
+        if (label) {
+            state.filter = label.toLowerCase();
+            els.filter.value = label;
+            renderSnapshot();
+        }
+        if (token) send(JS_TO_PY.selectEntities, { entityTokens: [token] });
+    });
 
     // --- Filtering -------------------------------------------------------
 
