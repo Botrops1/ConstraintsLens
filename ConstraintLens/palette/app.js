@@ -18,6 +18,7 @@
         findSelected: "findSelected",
         openEditDialog: "openEditDialog",
         editParameter: "editParameter",
+        toggleDocking: "toggleDocking",
     };
 
     const PY_TO_JS = {
@@ -26,6 +27,7 @@
         error: "error",
         actionResult: "actionResult",
         selectionResult: "selectionResult",
+        dockingState: "dockingState",
     };
 
     // --- SVG icons, one per constraint type. --------------------------------
@@ -153,6 +155,7 @@
         clearSelection: document.getElementById("clear-selection"),
         filter: document.getElementById("filter"),
         entityReadout: document.getElementById("entity-readout"),
+        dockToggle: document.getElementById("dock-toggle"),
     };
 
     // --- Outgoing messages -----------------------------------------------
@@ -204,6 +207,7 @@
                 case PY_TO_JS.error: onError(payload); break;
                 case PY_TO_JS.actionResult: onActionResult(payload); break;
                 case PY_TO_JS.selectionResult: onSelectionResult(payload); break;
+                case PY_TO_JS.dockingState: onDockingState(payload); break;
                 default: console.log("unknown action", action, payload);
             }
             return "OK";
@@ -242,6 +246,14 @@
     function onError(payload) {
         setStatus(`Error: ${payload.message || "unknown"}`, "error");
     }
+
+    function onDockingState(payload) {
+        const docked = !!payload.docked;
+        els.dockToggle.textContent = docked ? "⊟" : "⊞";
+        els.dockToggle.title = docked ? "Undock panel (make floating)" : "Dock panel to side";
+    }
+
+    els.dockToggle.addEventListener("click", () => send(JS_TO_PY.toggleDocking, {}));
 
     function onActionResult(payload) {
         const cls = payload.ok ? "ok" : "error";

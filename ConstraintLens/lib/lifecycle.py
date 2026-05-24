@@ -1,5 +1,6 @@
 # lib/lifecycle.py — command + palette registration (SPEC.md sections 4, 6, 7).
 
+import json
 import os
 import shutil
 import traceback
@@ -24,14 +25,37 @@ _addin_dir: str = ""
 _palette: adsk.core.Palette | None = None
 _command_definition: adsk.core.CommandDefinition | None = None
 _button_control: adsk.core.ToolbarControl | None = None
+_docked: bool = False
+_settings_path: str = ""
 
 
 # --- Lifecycle entry points ---------------------------------------------
 
 
+def _load_settings() -> None:
+    global _docked, _settings_path
+    _settings_path = os.path.join(_addin_dir, "settings.json")
+    try:
+        with open(_settings_path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+        _docked = bool(data.get("docked", False))
+    except Exception:
+        _docked = False
+
+
+def _save_settings() -> None:
+    try:
+        with open(_settings_path, "w", encoding="utf-8") as f:
+            json.dump({"docked": _docked}, f)
+    except Exception:
+        pass
+
+
 def start(addin_dir: str) -> None:
     global _addin_dir
     _addin_dir = addin_dir
+
+    _load_settings()
 
     app = adsk.core.Application.get()
     ui = app.userInterface
@@ -260,7 +284,9 @@ def _show_palette() -> None:
         True,    # useNewWebBrowser (Qt — required per locked decision)
     )
     try:
-        _palette.dockingState = adsk.core.PaletteDockingStates.PaletteDockStateRight
+        dock_state = (adsk.core.PaletteDockingStates.PaletteDockStateRight if _docked
+                      else adsk.core.PaletteDockingStates.PaletteDockStateFloating)
+        _palette.dockingState = dock_state
     except Exception:
         # Some Fusion builds make this read-only on initial creation; ignore.
         pass
@@ -286,6 +312,12 @@ def _on_palette_message(action: str, raw: str) -> None:
 
     if action == messaging.ACTION_PALETTE_READY or action == messaging.ACTION_REQUEST_REFRESH:
         _publish_active(app)
+        if action == messaging.ACTION_PALETTE_READY:
+            messaging.send(_palette, messaging.PY_DOCKING_STATE, {"docked": _docked})
+        return
+
+    if action == messaging.ACTION_TOGGLE_DOCKING:
+        _handle_toggle_docking()
         return
 
     if action == messaging.ACTION_SELECT_ENTITIES:
@@ -336,6 +368,19 @@ def _on_palette_closed() -> None:
 def _on_change() -> None:
     app = adsk.core.Application.get()
     _publish_active(app)
+
+
+def _handle_toggle_docking() -> None:
+    global _docked
+    _docked = not _docked
+    _save_settings()
+    try:
+        dock_state = (adsk.core.PaletteDockingStates.PaletteDockStateRight if _docked
+                      else adsk.core.PaletteDockingStates.PaletteDockStateFloating)
+        _palette.dockingState = dock_state
+    except Exception:
+        pass
+    messaging.send(_palette, messaging.PY_DOCKING_STATE, {"docked": _docked})
 
 
 def _publish_active(app: adsk.core.Application) -> None:
