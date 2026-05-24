@@ -99,6 +99,21 @@ def stop() -> None:
 # Maps our ConstraintLens kind names → sketch resource subfolder names.
 # Anchored via SketchGeomConstraintCmd.resourceFolder → .../sketch/Constraint_Coincident,
 # then the parent of that is the sketch/ resource base.
+# Per-kind command IDs to try when the standard folder has no dark variant.
+# Each list is tried in order; first one whose resourceFolder contains a
+# *-dark.png is used. Covers Horizontal/Vertical whose Constraint_* folders
+# only ship light-variant PNGs in current Fusion builds.
+_KIND_FALLBACK_CMDS: dict[str, tuple[str, ...]] = {
+    "HorizontalConstraint": (
+        "SketchGeomConstraintHorizontal", "SketchConstraintHorizontal",
+        "SketchHorizontalConstraint", "SketchHorizontal",
+    ),
+    "VerticalConstraint": (
+        "SketchGeomConstraintVertical", "SketchConstraintVertical",
+        "SketchVerticalConstraint", "SketchVertical",
+    ),
+}
+
 _ICON_MAP: dict[str, str] = {
     "CoincidentConstraint":                  "Constraint_Coincident",
     "CoincidentToSurfaceConstraint":         "Constraint_Coincident",
@@ -140,16 +155,27 @@ def _copy_native_icons(ui: adsk.core.UserInterface, addin_dir: str) -> None:
             src_base = os.path.join(base, folder_name)
             dst = os.path.join(icons_dir, f"{kind}.png")
             dst_light = os.path.join(icons_dir, f"{kind}-light.png")
-            # Dark slot: only accept -dark.png files (white glyphs). If none exist,
-            # remove any stale copy so the JS SVG fallback (currentColor) is used instead.
+            # Dark slot: only accept -dark.png files (white glyphs).
+            # Try the standard folder first, then per-kind command IDs as fallback.
+            # If nothing found, remove stale file so JS SVG fallback is used.
             copied_dark = False
-            for size in ("32x32-dark.png", "16x16-dark.png"):
-                try:
-                    shutil.copy2(os.path.join(src_base, size), dst)
-                    copied_dark = True
+            dark_folders = [src_base]
+            for cmd_id in _KIND_FALLBACK_CMDS.get(kind, ()):
+                fallback_cmd = ui.commandDefinitions.itemById(cmd_id)
+                if fallback_cmd is not None:
+                    fb = (fallback_cmd.resourceFolder or "").rstrip("/\\")
+                    if os.path.isdir(fb):
+                        dark_folders.append(fb)
+            for folder in dark_folders:
+                for size in ("32x32-dark.png", "16x16-dark.png"):
+                    try:
+                        shutil.copy2(os.path.join(folder, size), dst)
+                        copied_dark = True
+                        break
+                    except Exception:
+                        pass
+                if copied_dark:
                     break
-                except Exception:
-                    pass
             if not copied_dark:
                 try:
                     os.remove(dst)
