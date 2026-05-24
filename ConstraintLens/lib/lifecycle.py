@@ -140,13 +140,22 @@ def _copy_native_icons(ui: adsk.core.UserInterface, addin_dir: str) -> None:
             src_base = os.path.join(base, folder_name)
             dst = os.path.join(icons_dir, f"{kind}.png")
             dst_light = os.path.join(icons_dir, f"{kind}-light.png")
-            # Dark variant first (white glyphs); light variant prefers non-dark (dark glyphs).
-            for size in ("32x32-dark.png", "32x32.png", "16x16-dark.png", "16x16.png"):
+            # Dark slot: only accept -dark.png files (white glyphs). If none exist,
+            # remove any stale copy so the JS SVG fallback (currentColor) is used instead.
+            copied_dark = False
+            for size in ("32x32-dark.png", "16x16-dark.png"):
                 try:
                     shutil.copy2(os.path.join(src_base, size), dst)
+                    copied_dark = True
                     break
                 except Exception:
-                    pass  # try next size; if all fail → JS onerror uses inline SVG
+                    pass
+            if not copied_dark:
+                try:
+                    os.remove(dst)
+                except Exception:
+                    pass
+            # Light slot: prefer non-dark (dark glyphs); fall back to dark if needed.
             for size in ("32x32.png", "32x32-dark.png", "16x16.png", "16x16-dark.png"):
                 try:
                     shutil.copy2(os.path.join(src_base, size), dst_light)
@@ -186,10 +195,17 @@ def _copy_dimension_icon(ui: adsk.core.UserInterface, sketch_base: str, icons_di
         return
     dst = os.path.join(icons_dir, "dimension.png")
     dst_light = os.path.join(icons_dir, "dimension-light.png")
-    for size in ("32x32-dark.png", "32x32.png", "16x16-dark.png", "16x16.png"):
+    copied_dark = False
+    for size in ("32x32-dark.png", "16x16-dark.png"):
         try:
             shutil.copy2(os.path.join(source_folder, size), dst)
+            copied_dark = True
             break
+        except Exception:
+            pass
+    if not copied_dark:
+        try:
+            os.remove(dst)
         except Exception:
             pass
     for size in ("32x32.png", "32x32-dark.png", "16x16.png", "16x16-dark.png"):
