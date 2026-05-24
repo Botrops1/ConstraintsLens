@@ -156,6 +156,7 @@
         filter: document.getElementById("filter"),
         entityReadout: document.getElementById("entity-readout"),
         dockToggle: document.getElementById("dock-toggle"),
+        themeToggle: document.getElementById("theme-toggle"),
     };
 
     // --- Outgoing messages -----------------------------------------------
@@ -741,7 +742,24 @@
         attempt();
     }
 
+    // --- Theme toggle (#5) -----------------------------------------------
+
+    function updateThemeButton(theme) {
+        els.themeToggle.textContent = theme === "dark" ? "☀" : "🌙";
+        els.themeToggle.title = theme === "dark" ? "Switch to light theme" : "Switch to dark theme";
+    }
+
+    els.themeToggle.addEventListener("click", () => {
+        const next = document.documentElement.getAttribute("data-theme") === "dark" ? "light" : "dark";
+        document.documentElement.setAttribute("data-theme", next);
+        localStorage.setItem("cl-theme", next);
+        updateThemeButton(next);
+    });
+
     document.addEventListener("DOMContentLoaded", () => {
+        const savedTheme = localStorage.getItem("cl-theme") || "dark";
+        document.documentElement.setAttribute("data-theme", savedTheme);
+        updateThemeButton(savedTheme);
         state.loaded = true;
         _sendWhenReady(JS_TO_PY.paletteReady, {});
     });

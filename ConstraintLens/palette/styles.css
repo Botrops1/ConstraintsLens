@@ -1,4 +1,4 @@
-/* ConstraintLens palette — matches Fusion's dark theme. */
+/* ConstraintLens palette — dark theme default, light via data-theme="light". */
 
 :root {
     --bg: #2a2a2a;
@@ -14,6 +14,32 @@
     --border: #404040;
     --chip-bg: #3d3d3d;
     --chip-border: #525252;
+    --highlight-bg: #273040;
+    --highlight-bg-hover: #2d3848;
+    --badge-implicit-bg: #4a3a1c;
+    --badge-implicit-color: #e0b870;
+    --badge-error-bg: #4a2c2c;
+}
+
+:root[data-theme="light"] {
+    --bg: #f0f0f0;
+    --bg-elev: #e4e4e4;
+    --bg-row: #ebebeb;
+    --bg-row-hover: #dcdcdc;
+    --fg: #1a1a1a;
+    --fg-muted: #5a5a5a;
+    --accent: #1a6fa8;
+    --warn: #8a5c00;
+    --error: #b02020;
+    --ok: #2a7a35;
+    --border: #c8c8c8;
+    --chip-bg: #d8d8d8;
+    --chip-border: #b8b8b8;
+    --highlight-bg: #cce0f5;
+    --highlight-bg-hover: #b8d0e8;
+    --badge-implicit-bg: #f5e8c0;
+    --badge-implicit-color: #7a5000;
+    --badge-error-bg: #fde0de;
 }
 
 * {
@@ -81,7 +107,7 @@ body {
     cursor: not-allowed;
 }
 .btn.danger { color: var(--error); }
-.btn.danger:hover { background: #4a2c2c; }
+.btn.danger:hover { background: var(--badge-error-bg); }
 
 main {
     flex: 1;
@@ -173,8 +199,8 @@ main {
     text-transform: uppercase;
     letter-spacing: 0.05em;
 }
-.badge.implicit { background: #4a3a1c; color: #e0b870; }
-.badge.error { background: #4a2c2c; color: var(--error); }
+.badge.implicit { background: var(--badge-implicit-bg); color: var(--badge-implicit-color); }
+.badge.error { background: var(--badge-error-bg); color: var(--error); }
 
 .chips {
     display: flex;
@@ -297,10 +323,10 @@ main {
 /* --- Highlighted rows from canvas Find (#7) ------------------------- */
 
 .row.highlighted {
-    background: #273040;
+    background: var(--highlight-bg);
     border-left: 3px solid var(--accent);
 }
-.row.highlighted:hover { background: #2d3848; }
+.row.highlighted:hover { background: var(--highlight-bg-hover); }
 
 /* --- Dimension expression display and inline editor (#6) ------------ */
 
@@ -376,7 +402,7 @@ main {
     font-size: 8px;
     margin-left: 3px;
     padding: 0 3px;
-    background: #4a2c2c;
+    background: var(--badge-error-bg);
     color: var(--error);
     border-radius: 3px;
     vertical-align: middle;
