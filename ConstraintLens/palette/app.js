@@ -246,6 +246,7 @@
     function onActionResult(payload) {
         const cls = payload.ok ? "ok" : "error";
         showToast(payload.message || (payload.ok ? "OK" : "Failed"), cls);
+        if (payload.readout) showEntityReadout(payload.readout);
     }
 
     function onSelectionResult(payload) {
@@ -670,7 +671,7 @@
         if (toastTimer) clearTimeout(toastTimer);
         toastTimer = setTimeout(() => {
             toast.className = "toast " + (cls || "");
-        }, 2400);
+        }, 5000);
     }
 
     function escape(s) {

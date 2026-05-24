@@ -454,18 +454,27 @@ def _handle_show_underconstrained(app: adsk.core.Application) -> None:
         return
     try:
         result = app.executeTextCommand("Sketch.ShowUnderconstrained")
-        msg = str(result).strip() if result else "No underconstrained entities."
+        msg = str(result).strip() if result else "No underconstrained entities found."
         messaging.send(_palette, messaging.PY_ACTION_RESULT, {
             "action": messaging.ACTION_SHOW_UNDERCONSTRAINED,
             "ok": True,
             "message": msg,
+            "readout": msg,
         })
     except Exception as exc:
-        messaging.send(_palette, messaging.PY_ACTION_RESULT, {
-            "action": messaging.ACTION_SHOW_UNDERCONSTRAINED,
-            "ok": False,
-            "message": f"Show underconstrained failed: {exc}",
-        })
+        exc_str = str(exc)
+        if "fully constrained" in exc_str.lower():
+            messaging.send(_palette, messaging.PY_ACTION_RESULT, {
+                "action": messaging.ACTION_SHOW_UNDERCONSTRAINED,
+                "ok": True,
+                "message": "Sketch is fully constrained.",
+            })
+        else:
+            messaging.send(_palette, messaging.PY_ACTION_RESULT, {
+                "action": messaging.ACTION_SHOW_UNDERCONSTRAINED,
+                "ok": False,
+                "message": f"Show underconstrained failed: {exc}",
+            })
 
 
 # commandDefinition IDs confirmed by tests/probe_patterns/probe_patterns.py section A.
