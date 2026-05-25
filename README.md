@@ -71,7 +71,7 @@ Two toggle buttons sit on the right end of the name bar:
 
 | Button | What it does |
 |---|---|
-| **⊞ / ⊟** (dock toggle) | ⊞ docks the palette to the right column; ⊟ returns it to a free-floating, resizable window. Preference is saved to `settings.json` and restored on the next Fusion launch. Default is floating. |
+| **⊞ / ▶ / ◀ / ▼ / ▲** (dock cycle) | Cycles the palette through Float → Right → Left → Bottom → Top dock positions. The glyph shown is the *current* position; hover the tooltip to see what the next click will switch to. Skip a side that hides Fusion's bottom-right selection-info overlay. Preference is saved to `settings.json` (key `dock_state`) and restored on the next Fusion launch. Default is floating. |
 | **☀ / 🌙** (theme toggle) | Switches between dark (default) and light theme. Preference is saved in `localStorage` and restored when the palette is reopened. |
 
 ### Toolbar (buttons row)
@@ -91,6 +91,20 @@ Type any text to narrow the list. Matches against constraint labels, constraint 
 ### Entity readout strip
 
 Appears below the filter bar when **Find** is used. Shows the canvas label of the selected entity ("Selected: Line 3") so you know which entity the palette is currently highlighting rows for.
+
+### Selection-info footer
+
+A footer at the bottom of the palette mirrors Fusion's own bottom-right status overlay so the readout stays visible even when the palette is docked over that corner. Shows the entity name plus its key properties:
+
+- Sketch line / B-Rep edge → `Length`.
+- Sketch circle → `Radius`, `Diameter`.
+- Sketch arc → `Radius`, `Sweep` angle.
+- Sketch ellipse → `Major`, `Minor` axis radii.
+- Sketch point → `X`, `Y` coordinates (sketch plane).
+- Sketch dimension → current `Value` (expression).
+- B-Rep face → `Area`. B-Rep body → `Volume` and `Area`.
+
+The footer updates immediately via `UserInterface.activeSelectionChanged` (push-based, no polling) and hides itself when nothing is selected.
 
 ---
 

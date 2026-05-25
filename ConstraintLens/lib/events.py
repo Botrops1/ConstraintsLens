@@ -61,6 +61,28 @@ class _PaletteClosedHandler(adsk.core.UserInterfaceGeneralEventHandler):
             pass
 
 
+# Selection-changed handler base class isn't named identically across builds —
+# fall back to UserInterfaceGeneralEventHandler if ActiveSelectionEventHandler
+# isn't exposed in this Fusion's adsk.core.
+_SELECTION_HANDLER_BASE = getattr(
+    adsk.core,
+    "ActiveSelectionEventHandler",
+    adsk.core.UserInterfaceGeneralEventHandler,
+)
+
+
+class _ActiveSelectionChangedHandler(_SELECTION_HANDLER_BASE):
+    def __init__(self, on_change):
+        super().__init__()
+        self._on_change = on_change
+
+    def notify(self, args):
+        try:
+            self._on_change()
+        except Exception:
+            pass
+
+
 def pin(event, handler: adsk.core.EventHandler) -> None:
     """Pin a handler to a Fusion event and keep its Python ref alive.
 
@@ -84,6 +106,21 @@ def register_app(app: adsk.core.Application, ui: adsk.core.UserInterface, on_cha
     ui.commandTerminated.add(h2)
     _handlers.append(h2)
     _subscriptions.append((ui.commandTerminated, h2))
+
+
+def register_selection_changed(ui: adsk.core.UserInterface, on_change) -> bool:
+    """Subscribe to ui.activeSelectionChanged. Returns True if subscribed."""
+    event = getattr(ui, "activeSelectionChanged", None)
+    if event is None:
+        return False
+    try:
+        handler = _ActiveSelectionChangedHandler(on_change)
+        event.add(handler)
+        _handlers.append(handler)
+        _subscriptions.append((event, handler))
+        return True
+    except Exception:
+        return False
 
 
 def register_palette(

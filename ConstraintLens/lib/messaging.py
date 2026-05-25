@@ -17,13 +17,14 @@ ACTION_EDIT_DIMENSION = "editDimension"
 ACTION_FIND_SELECTED = "findSelected"
 ACTION_OPEN_EDIT_DIALOG = "openEditDialog"
 ACTION_EDIT_PARAMETER = "editParameter"
-ACTION_TOGGLE_DOCKING = "toggleDocking"
+ACTION_SET_DOCK_STATE = "setDockState"
 
 PY_ACTION_DATA = "data"
 PY_ACTION_NO_ACTIVE_SKETCH = "noActiveSketch"
 PY_ACTION_ERROR = "error"
 PY_ACTION_RESULT = "actionResult"
 PY_ACTION_SELECTION = "selectionResult"
+PY_ACTION_SELECTION_INFO = "selectionInfo"
 PY_DOCKING_STATE = "dockingState"
 
 

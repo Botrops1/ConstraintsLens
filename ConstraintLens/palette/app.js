@@ -18,7 +18,7 @@
         findSelected: "findSelected",
         openEditDialog: "openEditDialog",
         editParameter: "editParameter",
-        toggleDocking: "toggleDocking",
+        setDockState: "setDockState",
     };
 
     const PY_TO_JS = {
@@ -27,8 +27,37 @@
         error: "error",
         actionResult: "actionResult",
         selectionResult: "selectionResult",
+        selectionInfo: "selectionInfo",
         dockingState: "dockingState",
     };
+
+    // --- Dock state cycle -------------------------------------------------
+
+    // Glyph hints at the side the palette is currently anchored to.
+    const DOCK_GLYPHS = {
+        float:  "⊞",  // ⊞
+        right:  "▶",  // ▶
+        left:   "◀",  // ◀
+        bottom: "▼",  // ▼
+        top:    "▲",  // ▲
+    };
+    const DOCK_NAMES = {
+        float:  "Floating",
+        right:  "Docked right",
+        left:   "Docked left",
+        bottom: "Docked bottom",
+        top:    "Docked top",
+    };
+    const DOCK_CYCLE_ORDER = ["float", "right", "left", "bottom", "top"];
+
+    const dockState = { current: "float", available: ["float", "right"] };
+
+    function nextDockState() {
+        const cycle = DOCK_CYCLE_ORDER.filter(s => dockState.available.includes(s));
+        if (cycle.length === 0) return "float";
+        const idx = cycle.indexOf(dockState.current);
+        return cycle[(idx + 1) % cycle.length];
+    }
 
     // --- SVG icons, one per constraint type. --------------------------------
     // Inserted as raw HTML (not escaped); safe because these are hardcoded constants.
@@ -157,6 +186,7 @@
         entityReadout: document.getElementById("entity-readout"),
         dockToggle: document.getElementById("dock-toggle"),
         themeToggle: document.getElementById("theme-toggle"),
+        selectionFooter: document.getElementById("selection-footer"),
     };
 
     // --- Outgoing messages -----------------------------------------------
@@ -208,6 +238,7 @@
                 case PY_TO_JS.error: onError(payload); break;
                 case PY_TO_JS.actionResult: onActionResult(payload); break;
                 case PY_TO_JS.selectionResult: onSelectionResult(payload); break;
+                case PY_TO_JS.selectionInfo: onSelectionInfo(payload); break;
                 case PY_TO_JS.dockingState: onDockingState(payload); break;
                 default: console.log("unknown action", action, payload);
             }
@@ -249,12 +280,42 @@
     }
 
     function onDockingState(payload) {
-        const docked = !!payload.docked;
-        els.dockToggle.textContent = docked ? "⊟" : "⊞";
-        els.dockToggle.title = docked ? "Undock panel (make floating)" : "Dock panel to side";
+        if (payload && typeof payload.state === "string") {
+            dockState.current = payload.state;
+        }
+        if (payload && Array.isArray(payload.available) && payload.available.length > 0) {
+            dockState.available = payload.available;
+        }
+        const cur = dockState.current;
+        const nxt = nextDockState();
+        els.dockToggle.textContent = DOCK_GLYPHS[cur] || "⊞";
+        const nxtName = (DOCK_NAMES[nxt] || "floating").toLowerCase();
+        els.dockToggle.title = `${DOCK_NAMES[cur] || "Floating"} — click to switch to ${nxtName}`;
     }
 
-    els.dockToggle.addEventListener("click", () => send(JS_TO_PY.toggleDocking, {}));
+    els.dockToggle.addEventListener("click", () => {
+        send(JS_TO_PY.setDockState, { state: nextDockState() });
+    });
+
+    function onSelectionInfo(payload) {
+        const items = (payload && payload.items) || [];
+        if (items.length === 0) {
+            els.selectionFooter.className = "hidden";
+            els.selectionFooter.innerHTML = "";
+            return;
+        }
+        const html = items.map((item) => {
+            const props = (item.props || []).map((p) =>
+                `<span class="sel-prop"><span class="sel-key">${escape(p.key)}</span>` +
+                `<span class="sel-val">${escape(p.value)}</span></span>`
+            ).join("");
+            const labelHTML = `<span class="sel-label">${escape(item.label || "")}</span>`;
+            const sep = props ? `<span class="sel-sep">·</span>` : "";
+            return `<div class="sel-item">${labelHTML}${sep}${props}</div>`;
+        }).join("");
+        els.selectionFooter.className = "";
+        els.selectionFooter.innerHTML = html;
+    }
 
     function onActionResult(payload) {
         const cls = payload.ok ? "ok" : "error";

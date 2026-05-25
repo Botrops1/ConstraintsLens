@@ -8,7 +8,7 @@ import traceback
 import adsk.core
 import adsk.fusion
 
-from . import actions, events, messaging, scanner, selection, tokens
+from . import actions, events, labels, messaging, scanner, selection, tokens
 
 
 # Command and palette ids — must be unique across all add-ins.
@@ -20,12 +20,33 @@ _PALETTE_ID = "ConstraintLensPalette"
 _PANEL_ID = "SketchConstraintsPanel"
 
 
+# Dock-state vocabulary. Each entry maps the wire-format string used in
+# settings.json and palette messages to the corresponding adsk.core enum
+# member name. Members missing from the current Fusion build are pruned
+# from the available list at runtime so the JS cycle button never offers
+# an unsupported state.
+_DOCK_STATE_ATTR: dict[str, str] = {
+    "float":  "PaletteDockStateFloating",
+    "right":  "PaletteDockStateRight",
+    "left":   "PaletteDockStateLeft",
+    "bottom": "PaletteDockStateBottom",
+    "top":    "PaletteDockStateTop",
+}
+_DOCK_STATE_DEFAULT = "float"
+
+# Height cap (px) applied via setMaximumSize when docking, so the palette
+# leaves room for Fusion's bottom-right selection-info overlay. If the API
+# ignores the cap while docked (probe Q3), the cycle still gives the user
+# Left/Bottom/Top alternatives.
+_DOCK_MAX_HEIGHT_PX = 700
+
+
 # Module state — kept here, not duplicated across modules.
 _addin_dir: str = ""
 _palette: adsk.core.Palette | None = None
 _command_definition: adsk.core.CommandDefinition | None = None
 _button_control: adsk.core.ToolbarControl | None = None
-_docked: bool = False
+_dock_state: str = _DOCK_STATE_DEFAULT
 _settings_path: str = ""
 
 
@@ -33,22 +54,77 @@ _settings_path: str = ""
 
 
 def _load_settings() -> None:
-    global _docked, _settings_path
+    global _dock_state, _settings_path
     _settings_path = os.path.join(_addin_dir, "settings.json")
     try:
         with open(_settings_path, "r", encoding="utf-8") as f:
             data = json.load(f)
-        _docked = bool(data.get("docked", False))
     except Exception:
-        _docked = False
+        _dock_state = _DOCK_STATE_DEFAULT
+        return
+
+    state = data.get("dock_state")
+    if state in _DOCK_STATE_ATTR:
+        _dock_state = state
+        return
+
+    # v1.0.3–v1.1.0 stored a plain bool. Migrate on first read.
+    if "docked" in data:
+        _dock_state = "right" if bool(data["docked"]) else "float"
+        return
+
+    _dock_state = _DOCK_STATE_DEFAULT
 
 
 def _save_settings() -> None:
     try:
         with open(_settings_path, "w", encoding="utf-8") as f:
-            json.dump({"docked": _docked}, f)
+            json.dump({"dock_state": _dock_state}, f)
     except Exception:
         pass
+
+
+def _available_dock_states() -> list[str]:
+    """Subset of _DOCK_STATE_ATTR whose enum member exists in this build."""
+    states = adsk.core.PaletteDockingStates
+    return [name for name, attr in _DOCK_STATE_ATTR.items() if hasattr(states, attr)]
+
+
+def _dock_state_enum(state: str):
+    """Resolve a wire-format state name to its PaletteDockingStates enum value."""
+    attr = _DOCK_STATE_ATTR.get(state)
+    if attr is None:
+        return None
+    return getattr(adsk.core.PaletteDockingStates, attr, None)
+
+
+def _apply_dock_state(palette: adsk.core.Palette, state: str) -> str:
+    """Apply the requested dock state. Falls back to floating on failure;
+    returns the state actually applied so the JS button reflects reality."""
+    enum_val = _dock_state_enum(state)
+    if enum_val is None:
+        state = "float"
+        enum_val = _dock_state_enum("float")
+    try:
+        palette.dockingState = enum_val
+    except Exception:
+        # Some builds make dockingState read-only on initial creation,
+        # or refuse Left/Bottom/Top. Best-effort fall back to floating.
+        try:
+            palette.dockingState = _dock_state_enum("float")
+            state = "float"
+        except Exception:
+            pass
+
+    # Attempt to cap height so the docked palette doesn't run all the way
+    # to the canvas bottom-right status overlay. Harmless if ignored.
+    if state != "float" and hasattr(palette, "setMaximumSize"):
+        try:
+            palette.setMaximumSize(420, _DOCK_MAX_HEIGHT_PX)
+        except Exception:
+            pass
+
+    return state
 
 
 def start(addin_dir: str) -> None:
@@ -66,6 +142,12 @@ def start(addin_dir: str) -> None:
 
     # App-level events that signal "active sketch may have changed".
     events.register_app(app, ui, _on_change)
+
+    # Selection-change events drive the bottom-bar selection-info mirror
+    # (issue #3 follow-up). Falls back to a no-op subscription on builds
+    # that don't expose activeSelectionChanged — the footer then only
+    # refreshes on commandTerminated, which is still useful.
+    events.register_selection_changed(ui, _on_selection_changed)
 
 
 def stop() -> None:
@@ -333,16 +415,13 @@ def _show_palette() -> None:
         600,     # height
         True,    # useNewWebBrowser (Qt — required per locked decision)
     )
-    try:
-        dock_state = (adsk.core.PaletteDockingStates.PaletteDockStateRight if _docked
-                      else adsk.core.PaletteDockingStates.PaletteDockStateFloating)
-        _palette.dockingState = dock_state
-    except Exception:
-        # Some Fusion builds make this read-only on initial creation; ignore.
-        pass
+
+    global _dock_state
+    _dock_state = _apply_dock_state(_palette, _dock_state)
 
     events.register_palette(_palette, _on_palette_message, _on_palette_closed)
     _publish_active(app)
+    _push_selection_info(app)
 
 
 def _is_palette_alive(palette: adsk.core.Palette) -> bool:
@@ -362,12 +441,13 @@ def _on_palette_message(action: str, raw: str) -> None:
 
     if action == messaging.ACTION_PALETTE_READY or action == messaging.ACTION_REQUEST_REFRESH:
         _publish_active(app)
+        _push_selection_info(app)
         if action == messaging.ACTION_PALETTE_READY:
-            messaging.send(_palette, messaging.PY_DOCKING_STATE, {"docked": _docked})
+            _push_dock_state()
         return
 
-    if action == messaging.ACTION_TOGGLE_DOCKING:
-        _handle_toggle_docking()
+    if action == messaging.ACTION_SET_DOCK_STATE:
+        _handle_set_dock_state(payload)
         return
 
     if action == messaging.ACTION_SELECT_ENTITIES:
@@ -420,17 +500,231 @@ def _on_change() -> None:
     _publish_active(app)
 
 
-def _handle_toggle_docking() -> None:
-    global _docked
-    _docked = not _docked
+def _handle_set_dock_state(payload: dict) -> None:
+    global _dock_state
+    requested = payload.get("state") or ""
+    if requested not in _DOCK_STATE_ATTR:
+        return
+    if _palette is None:
+        return
+    _dock_state = _apply_dock_state(_palette, requested)
     _save_settings()
+    _push_dock_state()
+
+
+def _push_dock_state() -> None:
+    if _palette is None:
+        return
+    messaging.send(_palette, messaging.PY_DOCKING_STATE, {
+        "state": _dock_state,
+        "available": _available_dock_states(),
+    })
+
+
+def _on_selection_changed() -> None:
+    app = adsk.core.Application.get()
+    _push_selection_info(app)
+
+
+def _push_selection_info(app: adsk.core.Application) -> None:
+    if _palette is None:
+        return
     try:
-        dock_state = (adsk.core.PaletteDockingStates.PaletteDockStateRight if _docked
-                      else adsk.core.PaletteDockingStates.PaletteDockStateFloating)
-        _palette.dockingState = dock_state
+        payload = _build_selection_info(app)
+    except Exception:
+        payload = {"items": []}
+    messaging.send(_palette, messaging.PY_ACTION_SELECTION_INFO, payload)
+
+
+def _build_selection_info(app: adsk.core.Application) -> dict:
+    """Read ui.activeSelections and format each entity into a small dict
+    suitable for the bottom selection footer. Mirrors what Fusion's own
+    bottom-right status overlay shows (length / radius / area / volume / etc.)."""
+    ui = app.userInterface
+    units = None
+    try:
+        product = app.activeProduct
+        units = product.unitsManager if product else None
+    except Exception:
+        units = None
+
+    labeler = None
+    try:
+        sketch = scanner.active_sketch(app)
+        if sketch is not None:
+            labeler = labels.EntityLabeler(sketch)
+    except Exception:
+        labeler = None
+
+    items: list[dict] = []
+    try:
+        sel = ui.activeSelections
+        for i in range(sel.count):
+            try:
+                ent = sel.item(i).entity
+            except Exception:
+                continue
+            if ent is None:
+                continue
+            item = _format_selection_entity(ent, units, labeler)
+            if item is not None:
+                items.append(item)
     except Exception:
         pass
-    messaging.send(_palette, messaging.PY_DOCKING_STATE, {"docked": _docked})
+    return {"items": items}
+
+
+def _format_selection_entity(entity, units, labeler) -> dict | None:
+    label = _selection_label(entity, labeler)
+    props = _selection_props(entity, units)
+    return {"label": label, "props": props}
+
+
+def _selection_label(entity, labeler) -> str:
+    if labeler is not None:
+        try:
+            lbl = labeler.label_for(entity)
+            if lbl and lbl != "<unknown>":
+                return lbl
+        except Exception:
+            pass
+    try:
+        return entity.objectType.split("::")[-1]
+    except Exception:
+        return "<entity>"
+
+
+def _selection_props(entity, units) -> list[dict]:
+    """Return [{key, value}, ...] for one entity. Best-effort, never raises."""
+    props: list[dict] = []
+    try:
+        if isinstance(entity, adsk.fusion.SketchLine):
+            try:
+                props.append({"key": "Length", "value": _fmt_length(units, entity.length)})
+            except Exception:
+                pass
+            return props
+        if isinstance(entity, adsk.fusion.SketchCircle):
+            try:
+                r = entity.radius
+                props.append({"key": "Radius", "value": _fmt_length(units, r)})
+                props.append({"key": "Diameter", "value": _fmt_length(units, r * 2)})
+            except Exception:
+                pass
+            return props
+        if isinstance(entity, adsk.fusion.SketchArc):
+            try:
+                props.append({"key": "Radius", "value": _fmt_length(units, entity.radius)})
+            except Exception:
+                pass
+            try:
+                sweep = abs(entity.endAngle - entity.startAngle)
+                props.append({"key": "Sweep", "value": _fmt_angle(units, sweep)})
+            except Exception:
+                pass
+            return props
+        if isinstance(entity, adsk.fusion.SketchEllipse):
+            for key, attr in (("Major", "majorAxisRadius"), ("Minor", "minorAxisRadius")):
+                try:
+                    val = getattr(entity, attr, None)
+                    if val is not None:
+                        props.append({"key": key, "value": _fmt_length(units, val)})
+                except Exception:
+                    pass
+            return props
+        if isinstance(entity, adsk.fusion.SketchPoint):
+            try:
+                g = entity.geometry
+                props.append({"key": "X", "value": _fmt_length(units, g.x)})
+                props.append({"key": "Y", "value": _fmt_length(units, g.y)})
+            except Exception:
+                pass
+            return props
+        # Sketch dimensions all expose a .parameter with an expression.
+        param = getattr(entity, "parameter", None)
+        if param is not None:
+            try:
+                expr = getattr(param, "expression", None)
+                if expr:
+                    props.append({"key": "Value", "value": str(expr)})
+                    return props
+            except Exception:
+                pass
+        # B-Rep entities — match Fusion's own status overlay fields.
+        if isinstance(entity, adsk.fusion.BRepEdge):
+            try:
+                props.append({"key": "Length", "value": _fmt_length(units, entity.length)})
+            except Exception:
+                pass
+            return props
+        if isinstance(entity, adsk.fusion.BRepFace):
+            try:
+                props.append({"key": "Area", "value": _fmt_area(units, entity.area)})
+            except Exception:
+                pass
+            return props
+        if isinstance(entity, adsk.fusion.BRepBody):
+            try:
+                pp = entity.physicalProperties
+                props.append({"key": "Volume", "value": _fmt_volume(units, pp.volume)})
+                props.append({"key": "Area", "value": _fmt_area(units, pp.area)})
+            except Exception:
+                pass
+            return props
+    except Exception:
+        pass
+    return props
+
+
+def _fmt_length(units, value_cm) -> str:
+    if units is not None:
+        try:
+            return units.formatInternalValue(value_cm, units.defaultLengthUnits, True)
+        except Exception:
+            pass
+    return f"{value_cm:.4g} cm"
+
+
+def _fmt_angle(units, value_rad) -> str:
+    if units is not None:
+        try:
+            return units.formatInternalValue(value_rad, "deg", True)
+        except Exception:
+            pass
+    # Fusion stores angles in radians; convert for the manual fallback.
+    import math
+    return f"{math.degrees(value_rad):.3g}°"
+
+
+def _fmt_area(units, value_cm2) -> str:
+    # No dedicated area formatter on UnitsManager; emit a sensible default.
+    if units is not None:
+        try:
+            default = units.defaultLengthUnits
+            if default in ("mm",):
+                return f"{value_cm2 * 100:.4g} mm^2"
+            if default in ("m",):
+                return f"{value_cm2 / 10000:.4g} m^2"
+            if default in ("in",):
+                return f"{value_cm2 / 6.4516:.4g} in^2"
+        except Exception:
+            pass
+    return f"{value_cm2:.4g} cm^2"
+
+
+def _fmt_volume(units, value_cm3) -> str:
+    if units is not None:
+        try:
+            default = units.defaultLengthUnits
+            if default in ("mm",):
+                return f"{value_cm3 * 1000:.4g} mm^3"
+            if default in ("m",):
+                return f"{value_cm3 / 1_000_000:.4g} m^3"
+            if default in ("in",):
+                return f"{value_cm3 / 16.387064:.4g} in^3"
+        except Exception:
+            pass
+    return f"{value_cm3:.4g} cm^3"
 
 
 def _publish_active(app: adsk.core.Application) -> None:
@@ -441,6 +735,7 @@ def _publish_active(app: adsk.core.Application) -> None:
         messaging.send(_palette, messaging.PY_ACTION_NO_ACTIVE_SKETCH, {
             "reason": "Open a sketch for edit to see its constraints.",
         })
+        _push_selection_info(app)
         return
     try:
         payload = scanner.build_payload(sketch)
@@ -451,6 +746,7 @@ def _publish_active(app: adsk.core.Application) -> None:
         })
         return
     messaging.send(_palette, messaging.PY_ACTION_DATA, payload)
+    _push_selection_info(app)
 
 
 # --- Action handlers ----------------------------------------------------
