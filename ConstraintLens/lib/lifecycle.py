@@ -104,14 +104,10 @@ def stop() -> None:
 # *-dark.png is used. Covers Horizontal/Vertical whose Constraint_* folders
 # only ship light-variant PNGs in current Fusion builds.
 _KIND_FALLBACK_CMDS: dict[str, tuple[str, ...]] = {
-    "HorizontalConstraint": (
-        "SketchGeomConstraintHorizontal", "SketchConstraintHorizontal",
-        "SketchHorizontalConstraint", "SketchHorizontal",
-    ),
-    "VerticalConstraint": (
-        "SketchGeomConstraintVertical", "SketchConstraintVertical",
-        "SketchVerticalConstraint", "SketchVertical",
-    ),
+    # Fusion ships a single combined H/V command; no separate Constraint_Horizontal/
+    # Constraint_Vertical dark PNGs exist in the standard resource folders.
+    "HorizontalConstraint": ("ConstraintHorizontalVertical",),
+    "VerticalConstraint":   ("ConstraintHorizontalVertical",),
 }
 
 _ICON_MAP: dict[str, str] = {
