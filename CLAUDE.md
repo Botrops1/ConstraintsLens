@@ -2,9 +2,9 @@
 
 ## Current Status
 
-**Working on:** Post-v1.0.0 issue fixes (GitHub issues #3, #5).
-**Version:** 1.0.9 (manifest + commit must always match).
-**Next step:** Close GitHub issues #3 and #5 with fix references; consider next feature or release tag.
+**Working on:** Maintenance / community issues.
+**Version:** 1.1.0 (manifest + commit must always match).
+**Next step:** Monitor for new issues; next planned work TBD.
 **Convention:** Every commit that bumps the version string must also update `ConstraintLens/ConstraintLens.manifest` `"version"` field so Fusion shows the correct version.
 **Blocked by:** Nothing.
 
