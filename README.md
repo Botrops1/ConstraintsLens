@@ -29,7 +29,7 @@ Fills the long-standing UX gap of having to hunt tiny on-canvas glyphs to audit 
 ## Quick start
 
 1. Open a design and double-click a sketch in the browser tree to enter sketch-edit mode.
-2. Click **Constraint Lens** in the Sketch toolbar. A docked palette appears immediately — no Refresh needed.
+2. Click **Constraint Lens** in the Sketch toolbar. A floating palette appears immediately — no Refresh needed.
 3. The palette lists every geometric constraint, dimension, and implicit endpoint join in the sketch.
 4. Click any row to highlight the constraint's geometry in the viewport.
 
@@ -39,7 +39,7 @@ Fills the long-standing UX gap of having to hunt tiny on-canvas glyphs to audit 
 
 ```
 ┌──────────────────────────────────────────┐
-│  Sketch3 (Body1) — under-constrained     │  ← sketch name bar
+│  Sketch3 (Body1) — under-constrained  ⊞ ☀│  ← name bar (dock / theme toggles)
 ├──────────────────────────────────────────┤
 │  [Clear] [Delete 0] [Show u/c] [Find] [Refresh] │  ← toolbar
 ├──────────────────────────────────────────┤
@@ -66,6 +66,13 @@ Shows the sketch name, parent component, and constrained state:
 - **Yellow/orange** — under-constrained (some geometry is still free).
 - **Red** — over-constrained or has errors.
 - Any `healthState` warning message is shown inline.
+
+Two toggle buttons sit on the right end of the name bar:
+
+| Button | What it does |
+|---|---|
+| **⊞ / ⊟** (dock toggle) | ⊞ docks the palette to the right column; ⊟ returns it to a free-floating, resizable window. Preference is saved to `settings.json` and restored on the next Fusion launch. Default is floating. |
+| **☀ / 🌙** (theme toggle) | Switches between dark (default) and light theme. Preference is saved in `localStorage` and restored when the palette is reopened. |
 
 ### Toolbar (buttons row)
 
