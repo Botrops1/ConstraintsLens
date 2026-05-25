@@ -2,11 +2,22 @@
 
 ## Current Status
 
-**Working on:** v1.0 release preparation.
-**Version:** 1.0.0 (manifest + commit must always match) — entire v1 Polish Backlog (#1–#21) complete.
-**Next step:** PC test v0.2.12 end-to-end; tag v1.0 and merge to main.
+**Working on:** Post-v1.0.0 issue fixes (GitHub issues #3, #5).
+**Version:** 1.0.9 (manifest + commit must always match).
+**Next step:** Close GitHub issues #3 and #5 with fix references; consider next feature or release tag.
 **Convention:** Every commit that bumps the version string must also update `ConstraintLens/ConstraintLens.manifest` `"version"` field so Fusion shows the correct version.
 **Blocked by:** Nothing.
+
+### Recent fixes (v1.0.1–v1.0.9)
+- v1.0.1: Issue #4 — "Show underconstrained" fully-constrained exception handled correctly.
+- v1.0.2: Entity name chips in Find/underconstrained result strip; chip click sets filter + selects on canvas.
+- v1.0.3: Issue #3 — dock/float toggle with `settings.json` persistence; default floating (resizable).
+- v1.0.4: Issue #5 — light/dark theme toggle; CSS variables; `localStorage` persistence.
+- v1.0.5: Two-slot icon copy (dark + light PNGs) for theme switching.
+- v1.0.6: Toolbar layout — toggles moved to name bar; thin Fusion-style scrollbar.
+- v1.0.7: Icon dark slot: only accept `-dark.png`; stale files removed so SVG fallback activates cleanly.
+- v1.0.8: `_KIND_FALLBACK_CMDS` added for H/V constraint icon lookup (guessed IDs — not yet working).
+- v1.0.9: `ConstraintHorizontalVertical` confirmed as correct command for H/V dark icons via probe script.
 
 ### What's verified working (all PC tests + session history)
 - Add-in loads, palette docks, populates without Refresh click.
