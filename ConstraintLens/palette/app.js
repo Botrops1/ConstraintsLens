@@ -15,7 +15,6 @@
         showUnderconstrained: "showUnderconstrained",
         bulkDelete: "bulkDelete",
         editDimension: "editDimension",
-        findSelected: "findSelected",
         openEditDialog: "openEditDialog",
         editParameter: "editParameter",
     };
@@ -149,12 +148,12 @@
         status: document.getElementById("status"),
         refresh: document.getElementById("refresh"),
         highlightUnder: document.getElementById("highlight-under"),
-        findSelected: document.getElementById("find-selected"),
         bulkDelete: document.getElementById("bulk-delete"),
         clearSelection: document.getElementById("clear-selection"),
         filter: document.getElementById("filter"),
         entityReadout: document.getElementById("entity-readout"),
         selectedSection: document.getElementById("selected-section"),
+        selectedLabel: document.getElementById("selected-label"),
         themeToggle: document.getElementById("theme-toggle"),
         selectionFooter: document.getElementById("selection-footer"),
         footerSection: document.getElementById("footer-section"),
@@ -172,7 +171,6 @@
 
     els.refresh.addEventListener("click", () => send(JS_TO_PY.requestRefresh, {}));
     els.highlightUnder.addEventListener("click", () => send(JS_TO_PY.showUnderconstrained, {}));
-    els.findSelected.addEventListener("click", () => send(JS_TO_PY.findSelected, {}));
     els.filter.addEventListener("input", () => {
         state.filter = els.filter.value.trim().toLowerCase();
         renderSnapshot();
@@ -229,7 +227,6 @@
         state.selected.clear();
         updateBulkDeleteButton();
         els.highlightUnder.disabled = false;
-        els.findSelected.disabled = false;
         renderSnapshot();
     }
 
@@ -239,7 +236,6 @@
         state.highlights.clear();
         updateBulkDeleteButton();
         els.highlightUnder.disabled = true;
-        els.findSelected.disabled = true;
         showEntityReadout("");
         setStatus(payload.reason || "No active sketch.", "warn");
         els.root.innerHTML = `<div class="empty">${escape(payload.reason || "Open a sketch for edit to see its constraints.")}</div>`;
@@ -277,6 +273,8 @@
 
     function onSelectionResult(payload) {
         const tokens = payload.tokens || [];
+        const prefix = payload.prefix || "Selected:";
+        els.selectedLabel.textContent = prefix;
         state.highlights.clear();
 
         if (!state.snapshot || tokens.length === 0) {

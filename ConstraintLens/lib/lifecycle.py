@@ -25,6 +25,11 @@ _palette: adsk.core.Palette | None = None
 _command_definition: adsk.core.CommandDefinition | None = None
 _button_control: adsk.core.ToolbarControl | None = None
 
+# When True, the very next activeSelectionChanged callback is swallowed so
+# the Show-underconstrained handler's own labelled push isn't overwritten
+# by a generic "Selected:" auto-update. Reset after one event.
+_swallow_next_selection_change: bool = False
+
 
 # --- Lifecycle entry points ---------------------------------------------
 
@@ -330,6 +335,7 @@ def _show_palette() -> None:
     events.register_palette(_palette, _on_palette_message, _on_palette_closed)
     _publish_active(app)
     _push_selection_info(app)
+    _push_selection_tokens(app)
 
 
 def _is_palette_alive(palette: adsk.core.Palette) -> bool:
@@ -350,6 +356,7 @@ def _on_palette_message(action: str, raw: str) -> None:
     if action == messaging.ACTION_PALETTE_READY or action == messaging.ACTION_REQUEST_REFRESH:
         _publish_active(app)
         _push_selection_info(app)
+        _push_selection_tokens(app)
         return
 
     if action == messaging.ACTION_SELECT_ENTITIES:
@@ -404,7 +411,15 @@ def _on_change() -> None:
 
 def _on_selection_changed() -> None:
     app = adsk.core.Application.get()
+    # Show-underconstrained handler issues its own labelled push immediately
+    # after the text command, so skip this auto-update once to avoid the
+    # generic "Selected:" payload overwriting "Underconstrained:".
+    global _swallow_next_selection_change
+    if _swallow_next_selection_change:
+        _swallow_next_selection_change = False
+        return
     _push_selection_info(app)
+    _push_selection_tokens(app)
 
 
 def _push_selection_info(app: adsk.core.Application) -> None:
@@ -415,6 +430,32 @@ def _push_selection_info(app: adsk.core.Application) -> None:
     except Exception:
         payload = {"items": []}
     messaging.send(_palette, messaging.PY_ACTION_SELECTION_INFO, payload)
+
+
+def _push_selection_tokens(app: adsk.core.Application, prefix: str = "Selected:") -> None:
+    """Read activeSelections, build entity tokens, push a selectionResult.
+    Drives the row-highlighting + chip-readout that was previously triggered
+    by the manual Find button."""
+    if _palette is None:
+        return
+    ui = app.userInterface
+    entity_tokens: list[str] = []
+    try:
+        sel = ui.activeSelections
+        for i in range(sel.count):
+            try:
+                entity = sel.item(i).entity
+                tok = tokens.token_of(entity) or ""
+                if tok:
+                    entity_tokens.append(tok)
+            except Exception:
+                continue
+    except Exception:
+        pass
+    messaging.send(_palette, messaging.PY_ACTION_SELECTION, {
+        "tokens": entity_tokens,
+        "prefix": prefix,
+    })
 
 
 def _build_selection_info(app: adsk.core.Application) -> dict:
@@ -848,21 +889,10 @@ def _handle_edit_dimension(app: adsk.core.Application, payload: dict) -> None:
 
 
 def _handle_find_selected(app: adsk.core.Application) -> None:
-    ui = app.userInterface
-    entity_tokens: list[str] = []
-    try:
-        sel = ui.activeSelections
-        for i in range(sel.count):
-            try:
-                entity = sel.item(i).entity
-                tok = tokens.token_of(entity) or ""
-                if tok:
-                    entity_tokens.append(tok)
-            except Exception:
-                continue
-    except Exception:
-        pass
-    messaging.send(_palette, messaging.PY_ACTION_SELECTION, {"tokens": entity_tokens})
+    # Pack 2: Find logic is now driven automatically by
+    # activeSelectionChanged. This stub remains so the action constant
+    # still routes for any stale JS message (e.g. an older cached palette).
+    _push_selection_tokens(app)
 
 
 def _entities_for_row(constraint) -> list:
