@@ -24,18 +24,24 @@
         <button class="btn" id="refresh" title="Re-scan the active sketch">Refresh</button>
     </div>
 
+    <div id="selected-section" class="hidden">
+        <div class="section-label">Selected:</div>
+        <div id="entity-readout"></div>
+    </div>
+
     <div class="filter-bar">
         <input type="search" id="filter" placeholder="Filter by label or type…"
                autocomplete="off" spellcheck="false">
     </div>
 
-    <div id="entity-readout"></div>
-
     <main id="root">
         <div class="empty">Loading…</div>
     </main>
 
-    <footer id="selection-footer" class="hidden"></footer>
+    <div id="footer-section" class="hidden">
+        <div class="section-label section-label-footer">Properties of selected:</div>
+        <footer id="selection-footer"></footer>
+    </div>
 
     <script src="app.js"></script>
 </body>

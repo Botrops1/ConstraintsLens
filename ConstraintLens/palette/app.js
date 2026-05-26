@@ -154,8 +154,10 @@
         clearSelection: document.getElementById("clear-selection"),
         filter: document.getElementById("filter"),
         entityReadout: document.getElementById("entity-readout"),
+        selectedSection: document.getElementById("selected-section"),
         themeToggle: document.getElementById("theme-toggle"),
         selectionFooter: document.getElementById("selection-footer"),
+        footerSection: document.getElementById("footer-section"),
     };
 
     // --- Outgoing messages -----------------------------------------------
@@ -250,7 +252,7 @@
     function onSelectionInfo(payload) {
         const items = (payload && payload.items) || [];
         if (items.length === 0) {
-            els.selectionFooter.className = "hidden";
+            els.footerSection.className = "hidden";
             els.selectionFooter.innerHTML = "";
             return;
         }
@@ -263,7 +265,7 @@
             const sep = props ? `<span class="sel-sep">·</span>` : "";
             return `<div class="sel-item">${labelHTML}${sep}${props}</div>`;
         }).join("");
-        els.selectionFooter.className = "";
+        els.footerSection.className = "";
         els.selectionFooter.innerHTML = html;
     }
 
@@ -311,7 +313,7 @@
         // #12 — entity name readout as clickable chips.
         const matched = tokens.filter(t => tokenToLabel.has(t)).map(t => ({ label: tokenToLabel.get(t), token: t }));
         if (matched.length) {
-            showReadoutChips("Selected: ", matched);
+            showReadoutChips(matched);
         } else {
             showEntityReadout("Selected entity not in any row.");
         }
@@ -331,18 +333,27 @@
     }
 
     function showEntityReadout(text) {
+        if (!text) {
+            els.selectedSection.className = "hidden";
+            els.entityReadout.innerHTML = "";
+            return;
+        }
         els.entityReadout.textContent = text;
-        els.entityReadout.style.display = text ? "flex" : "none";
+        els.selectedSection.className = "";
     }
 
-    function showReadoutChips(prefix, items) {
-        const prefixHTML = prefix ? `<span>${escape(prefix)}</span>` : "";
+    function showReadoutChips(items) {
+        if (!items || items.length === 0) {
+            els.selectedSection.className = "hidden";
+            els.entityReadout.innerHTML = "";
+            return;
+        }
         const chipsHTML = items.map(({label, token}) =>
             `<span class="chip" data-label="${escape(label)}" data-token="${escape(token)}"
                    title="Click to filter and select">${escape(label)}</span>`
         ).join("");
-        els.entityReadout.innerHTML = prefixHTML + chipsHTML;
-        els.entityReadout.style.display = "flex";
+        els.entityReadout.innerHTML = chipsHTML;
+        els.selectedSection.className = "";
     }
 
     els.entityReadout.addEventListener("click", (evt) => {
