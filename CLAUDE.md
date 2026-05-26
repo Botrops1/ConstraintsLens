@@ -3,12 +3,13 @@
 ## Current Status
 
 **Working on:** Maintenance / community issues.
-**Version:** 1.2.2 (manifest + commit must always match).
-**Next step:** Monitor for new issues; next planned work TBD.
+**Version:** 1.3.0 (manifest + commit must always match).
+**Next step:** Monitor for new issues; Pack 4 (auto-zoom on selection) is in the backlog pending camera-API probe.
 **Convention:** Every commit that bumps the version string must also update `ConstraintLens/ConstraintLens.manifest` `"version"` field so Fusion shows the correct version.
 **Blocked by:** Nothing.
 
-### Recent fixes (v1.0.1–v1.2.2)
+### Recent fixes (v1.0.1–v1.3.0)
+- v1.3.0: Selected / Find / Show-underconstrained refactor. (1) Layout: `#entity-readout` moved above the filter bar with a "Selected:" header; footer wrapped under a "Properties of selected:" header. (2) Find button removed — row highlighting + auto-scroll + chip readout are now driven automatically by `activeSelectionChanged` (same event that already powers the properties footer). (3) "Show underconstrained" no longer dumps plain text into the readout — it surfaces the underconstrained entities as clickable chips labelled "Underconstrained:", with a 750 ms selection-change suppression window so the labelled push isn't overwritten by the text command's selection side-effect.
 - v1.2.2: Restore docked-palette resize affordance. `setMaximumSize(420, 700)` is called after palette creation to re-arm Fusion's Qt dock-widget resize handle; `isResizable=True` alone does not activate it when the palette is docked.
 - v1.2.1: Issue #3 follow-up cleanup. PC testing confirmed Fusion's own drag-to-snap UX already covers all dock positions and the palette is resizable in every mode (docked or floating). The v1.2.0 dock-cycle button was therefore redundant and confusing — it has been removed, along with the `settings.json` `dock_state` key, the `setDockState` action, and the `setMaximumSize` cap. Fusion now controls dock state natively and remembers it across sessions. The selection-info footer from v1.2.0 stays — it's still the only way to see the bottom-right status when the palette covers that corner. Probe script kept in `tests/probe_palette/` for reference.
 - v1.2.0: Issue #3 follow-up — added a multi-position dock cycle and a selection-info footer mirroring Fusion's bottom-right status overlay. (Dock cycle withdrawn in v1.2.1; footer retained.)

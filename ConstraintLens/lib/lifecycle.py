@@ -2,6 +2,7 @@
 
 import os
 import shutil
+import time
 import traceback
 
 import adsk.core
@@ -25,10 +26,12 @@ _palette: adsk.core.Palette | None = None
 _command_definition: adsk.core.CommandDefinition | None = None
 _button_control: adsk.core.ToolbarControl | None = None
 
-# When True, the very next activeSelectionChanged callback is swallowed so
-# the Show-underconstrained handler's own labelled push isn't overwritten
-# by a generic "Selected:" auto-update. Reset after one event.
-_swallow_next_selection_change: bool = False
+# activeSelectionChanged callbacks fired before this monotonic timestamp
+# are swallowed. Set by Show-underconstrained to a short future window so
+# its own labelled "Underconstrained:" push isn't overwritten by the
+# auto-update that the text command's selection side-effect triggers
+# (whether Fusion fires that event synchronously or after a brief delay).
+_swallow_selection_until: float = 0.0
 
 
 # --- Lifecycle entry points ---------------------------------------------
@@ -411,12 +414,9 @@ def _on_change() -> None:
 
 def _on_selection_changed() -> None:
     app = adsk.core.Application.get()
-    # Show-underconstrained handler issues its own labelled push immediately
-    # after the text command, so skip this auto-update once to avoid the
-    # generic "Selected:" payload overwriting "Underconstrained:".
-    global _swallow_next_selection_change
-    if _swallow_next_selection_change:
-        _swallow_next_selection_change = False
+    # Swallow auto-updates briefly after Show-underconstrained so the
+    # generic "Selected:" payload doesn't overwrite "Underconstrained:".
+    if time.monotonic() < _swallow_selection_until:
         return
     _push_selection_info(app)
     _push_selection_tokens(app)
@@ -765,6 +765,16 @@ def _handle_show_underconstrained(app: adsk.core.Application) -> None:
             "message": "No active sketch.",
         })
         return
+
+    # The text command programmatically selects the underconstrained entities
+    # on the canvas, which fires activeSelectionChanged. Open a short
+    # suppression window so any auto-update (sync or async) doesn't
+    # overwrite the labelled "Underconstrained:" push we issue below.
+    # 750ms is long enough to absorb async dispatch latency, short enough
+    # that a user's next real selection click isn't ignored.
+    global _swallow_selection_until
+    _swallow_selection_until = time.monotonic() + 0.75
+
     try:
         result = app.executeTextCommand("Sketch.ShowUnderconstrained")
         msg = str(result).strip() if result else "No underconstrained entities found."
@@ -772,9 +782,14 @@ def _handle_show_underconstrained(app: adsk.core.Application) -> None:
             "action": messaging.ACTION_SHOW_UNDERCONSTRAINED,
             "ok": True,
             "message": msg,
-            "readout": msg,
         })
+        # Push the now-selected underconstrained entities into the Selected
+        # strip as clickable chips, labelled "Underconstrained:". The
+        # properties footer also refreshes from the same active selection.
+        _push_selection_tokens(app, prefix="Underconstrained:")
+        _push_selection_info(app)
     except Exception as exc:
+        _swallow_selection_until = 0.0
         exc_str = str(exc)
         if "fully constrained" in exc_str.lower():
             messaging.send(_palette, messaging.PY_ACTION_RESULT, {
