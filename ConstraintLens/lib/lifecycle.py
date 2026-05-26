@@ -330,14 +330,12 @@ def _show_palette() -> None:
     # handles docking natively and remembers the last position across
     # sessions, so any state we'd impose would override the user's choice.
 
-    # setMaximumSize re-arms Fusion's Qt dock-widget resize affordance,
-    # which isResizable=True alone does not activate when docked.
-    # Confirmed broken values: (0,0) locks resize; >=9999 crashes/deactivates
-    # the add-in. 2048 is a safe upper bound (covers 4K screen heights).
-    try:
-        _palette.setMaximumSize(420, 2048)
-    except Exception:
-        pass
+    # setMinimumSize prevents the palette from being dragged below a
+    # readable size. No setMaximumSize call — previous testing showed that
+    # setMaximumSize(420, 700) capped height at 700 px; raising the cap
+    # (2048) caused the palette to fill the dock area and lose its resize
+    # handle when docked. Relying on isResizable=True alone to see whether
+    # Fusion's palette system arms the handle without a max-size constraint.
     try:
         _palette.setMinimumSize(200, 150)
     except Exception:
