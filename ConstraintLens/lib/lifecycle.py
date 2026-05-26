@@ -356,12 +356,12 @@ def _is_palette_alive(palette: adsk.core.Palette) -> bool:
 
 
 def _on_palette_message(action: str, raw: str) -> None:
+    global _auto_zoom
     app = adsk.core.Application.get()
     payload = messaging.parse_incoming(raw)
 
     if action == messaging.ACTION_PALETTE_READY or action == messaging.ACTION_REQUEST_REFRESH:
         if action == messaging.ACTION_PALETTE_READY:
-            global _auto_zoom
             _auto_zoom = bool(payload.get("autoZoom", False))
         _publish_active(app)
         _push_selection_info(app)
@@ -405,7 +405,6 @@ def _on_palette_message(action: str, raw: str) -> None:
         return
 
     if action == messaging.ACTION_SET_AUTO_ZOOM:
-        global _auto_zoom
         _auto_zoom = bool(payload.get("enabled", False))
         return
 
