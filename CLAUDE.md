@@ -3,13 +3,14 @@
 ## Current Status
 
 **Working on:** Maintenance / community issues.
-**Version:** 1.2.0 (manifest + commit must always match).
+**Version:** 1.2.1 (manifest + commit must always match).
 **Next step:** Monitor for new issues; next planned work TBD.
 **Convention:** Every commit that bumps the version string must also update `ConstraintLens/ConstraintLens.manifest` `"version"` field so Fusion shows the correct version.
 **Blocked by:** Nothing.
 
-### Recent fixes (v1.0.1–v1.2.0)
-- v1.2.0: Issue #3 follow-up — the binary dock toggle is replaced by a multi-position cycle (Float / Right / Left / Bottom / Top) so users can dock to a side that doesn't block Fusion's bottom-right selection-info overlay. A new selection-info footer inside the palette mirrors the same length / radius / area / volume readout, driven by `UserInterface.activeSelectionChanged` (push, not poll). `settings.json` migrated from `{"docked": bool}` to `{"dock_state": "<name>"}`; legacy key auto-migrates on first load. Unsupported dock-state enum members are pruned at runtime so the cycle button never offers a state Fusion would reject. Best-effort `setMaximumSize` cap applied when docking, in case the build honours it. Probe `tests/probe_palette/probe_palette.py` enumerates the API surface for verification.
+### Recent fixes (v1.0.1–v1.2.1)
+- v1.2.1: Issue #3 follow-up cleanup. PC testing confirmed Fusion's own drag-to-snap UX already covers all dock positions and the palette is resizable in every mode (docked or floating). The v1.2.0 dock-cycle button was therefore redundant and confusing — it has been removed, along with the `settings.json` `dock_state` key, the `setDockState` action, and the `setMaximumSize` cap. Fusion now controls dock state natively and remembers it across sessions. The selection-info footer from v1.2.0 stays — it's still the only way to see the bottom-right status when the palette covers that corner. Probe script kept in `tests/probe_palette/` for reference.
+- v1.2.0: Issue #3 follow-up — added a multi-position dock cycle and a selection-info footer mirroring Fusion's bottom-right status overlay. (Dock cycle withdrawn in v1.2.1; footer retained.)
 - v1.0.1: Issue #4 — "Show underconstrained" fully-constrained exception handled correctly.
 - v1.0.2: Entity name chips in Find/underconstrained result strip; chip click sets filter + selects on canvas.
 - v1.0.3: Issue #3 — dock/float toggle with `settings.json` persistence; default floating (resizable). Superseded by v1.2.0.

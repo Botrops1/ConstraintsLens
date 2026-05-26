@@ -67,12 +67,13 @@ Shows the sketch name, parent component, and constrained state:
 - **Red** — over-constrained or has errors.
 - Any `healthState` warning message is shown inline.
 
-Two toggle buttons sit on the right end of the name bar:
+One toggle button sits on the right end of the name bar:
 
 | Button | What it does |
 |---|---|
-| **⊞ / ▶ / ◀ / ▼ / ▲** (dock cycle) | Cycles the palette through Float → Right → Left → Bottom → Top dock positions. The glyph shown is the *current* position; hover the tooltip to see what the next click will switch to. Skip a side that hides Fusion's bottom-right selection-info overlay. Preference is saved to `settings.json` (key `dock_state`) and restored on the next Fusion launch. Default is floating. |
 | **☀ / 🌙** (theme toggle) | Switches between dark (default) and light theme. Preference is saved in `localStorage` and restored when the palette is reopened. |
+
+> **Docking and resizing** are handled by Fusion itself. Drag the palette title bar to any edge of the Fusion window to snap-dock it (right / left / bottom / top), or drop it anywhere to float. Drag any palette edge to resize — works in both docked and floating modes. Fusion remembers the position and size across sessions.
 
 ### Toolbar (buttons row)
 

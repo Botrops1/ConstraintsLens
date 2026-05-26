@@ -1,6 +1,5 @@
 # lib/lifecycle.py — command + palette registration (SPEC.md sections 4, 6, 7).
 
-import json
 import os
 import shutil
 import traceback
@@ -20,118 +19,19 @@ _PALETTE_ID = "ConstraintLensPalette"
 _PANEL_ID = "SketchConstraintsPanel"
 
 
-# Dock-state vocabulary. Each entry maps the wire-format string used in
-# settings.json and palette messages to the corresponding adsk.core enum
-# member name. Members missing from the current Fusion build are pruned
-# from the available list at runtime so the JS cycle button never offers
-# an unsupported state.
-_DOCK_STATE_ATTR: dict[str, str] = {
-    "float":  "PaletteDockStateFloating",
-    "right":  "PaletteDockStateRight",
-    "left":   "PaletteDockStateLeft",
-    "bottom": "PaletteDockStateBottom",
-    "top":    "PaletteDockStateTop",
-}
-_DOCK_STATE_DEFAULT = "float"
-
-# Height cap (px) applied via setMaximumSize when docking, so the palette
-# leaves room for Fusion's bottom-right selection-info overlay. If the API
-# ignores the cap while docked (probe Q3), the cycle still gives the user
-# Left/Bottom/Top alternatives.
-_DOCK_MAX_HEIGHT_PX = 700
-
-
 # Module state — kept here, not duplicated across modules.
 _addin_dir: str = ""
 _palette: adsk.core.Palette | None = None
 _command_definition: adsk.core.CommandDefinition | None = None
 _button_control: adsk.core.ToolbarControl | None = None
-_dock_state: str = _DOCK_STATE_DEFAULT
-_settings_path: str = ""
 
 
 # --- Lifecycle entry points ---------------------------------------------
 
 
-def _load_settings() -> None:
-    global _dock_state, _settings_path
-    _settings_path = os.path.join(_addin_dir, "settings.json")
-    try:
-        with open(_settings_path, "r", encoding="utf-8") as f:
-            data = json.load(f)
-    except Exception:
-        _dock_state = _DOCK_STATE_DEFAULT
-        return
-
-    state = data.get("dock_state")
-    if state in _DOCK_STATE_ATTR:
-        _dock_state = state
-        return
-
-    # v1.0.3–v1.1.0 stored a plain bool. Migrate on first read.
-    if "docked" in data:
-        _dock_state = "right" if bool(data["docked"]) else "float"
-        return
-
-    _dock_state = _DOCK_STATE_DEFAULT
-
-
-def _save_settings() -> None:
-    try:
-        with open(_settings_path, "w", encoding="utf-8") as f:
-            json.dump({"dock_state": _dock_state}, f)
-    except Exception:
-        pass
-
-
-def _available_dock_states() -> list[str]:
-    """Subset of _DOCK_STATE_ATTR whose enum member exists in this build."""
-    states = adsk.core.PaletteDockingStates
-    return [name for name, attr in _DOCK_STATE_ATTR.items() if hasattr(states, attr)]
-
-
-def _dock_state_enum(state: str):
-    """Resolve a wire-format state name to its PaletteDockingStates enum value."""
-    attr = _DOCK_STATE_ATTR.get(state)
-    if attr is None:
-        return None
-    return getattr(adsk.core.PaletteDockingStates, attr, None)
-
-
-def _apply_dock_state(palette: adsk.core.Palette, state: str) -> str:
-    """Apply the requested dock state. Falls back to floating on failure;
-    returns the state actually applied so the JS button reflects reality."""
-    enum_val = _dock_state_enum(state)
-    if enum_val is None:
-        state = "float"
-        enum_val = _dock_state_enum("float")
-    try:
-        palette.dockingState = enum_val
-    except Exception:
-        # Some builds make dockingState read-only on initial creation,
-        # or refuse Left/Bottom/Top. Best-effort fall back to floating.
-        try:
-            palette.dockingState = _dock_state_enum("float")
-            state = "float"
-        except Exception:
-            pass
-
-    # Attempt to cap height so the docked palette doesn't run all the way
-    # to the canvas bottom-right status overlay. Harmless if ignored.
-    if state != "float" and hasattr(palette, "setMaximumSize"):
-        try:
-            palette.setMaximumSize(420, _DOCK_MAX_HEIGHT_PX)
-        except Exception:
-            pass
-
-    return state
-
-
 def start(addin_dir: str) -> None:
     global _addin_dir
     _addin_dir = addin_dir
-
-    _load_settings()
 
     app = adsk.core.Application.get()
     ui = app.userInterface
@@ -415,9 +315,9 @@ def _show_palette() -> None:
         600,     # height
         True,    # useNewWebBrowser (Qt — required per locked decision)
     )
-
-    global _dock_state
-    _dock_state = _apply_dock_state(_palette, _dock_state)
+    # Dock state is intentionally not set here — Fusion's drag-to-snap UX
+    # handles docking natively and remembers the last position across
+    # sessions, so any state we'd impose would override the user's choice.
 
     events.register_palette(_palette, _on_palette_message, _on_palette_closed)
     _publish_active(app)
@@ -442,12 +342,6 @@ def _on_palette_message(action: str, raw: str) -> None:
     if action == messaging.ACTION_PALETTE_READY or action == messaging.ACTION_REQUEST_REFRESH:
         _publish_active(app)
         _push_selection_info(app)
-        if action == messaging.ACTION_PALETTE_READY:
-            _push_dock_state()
-        return
-
-    if action == messaging.ACTION_SET_DOCK_STATE:
-        _handle_set_dock_state(payload)
         return
 
     if action == messaging.ACTION_SELECT_ENTITIES:
@@ -498,27 +392,6 @@ def _on_palette_closed() -> None:
 def _on_change() -> None:
     app = adsk.core.Application.get()
     _publish_active(app)
-
-
-def _handle_set_dock_state(payload: dict) -> None:
-    global _dock_state
-    requested = payload.get("state") or ""
-    if requested not in _DOCK_STATE_ATTR:
-        return
-    if _palette is None:
-        return
-    _dock_state = _apply_dock_state(_palette, requested)
-    _save_settings()
-    _push_dock_state()
-
-
-def _push_dock_state() -> None:
-    if _palette is None:
-        return
-    messaging.send(_palette, messaging.PY_DOCKING_STATE, {
-        "state": _dock_state,
-        "available": _available_dock_states(),
-    })
 
 
 def _on_selection_changed() -> None:
