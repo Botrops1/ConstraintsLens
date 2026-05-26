@@ -39,23 +39,27 @@ Fills the long-standing UX gap of having to hunt tiny on-canvas glyphs to audit 
 
 ```
 ┌──────────────────────────────────────────┐
-│  Sketch3 (Body1) — under-constrained  ⊞ ☀│  ← name bar (dock / theme toggles)
+│  Sketch3 (Body1) — under-constrained  ☀  │  ← name bar (theme toggle)
 ├──────────────────────────────────────────┤
-│  [Clear] [Delete 0] [Show u/c] [Find] [Refresh] │  ← toolbar
+│  [Clear] [Delete 0] [Show u/c] [Refresh] │  ← toolbar
+├──────────────────────────────────────────┤
+│  SELECTED:                            ⌕  │  ← canvas selection (auto, hidden when empty)
+│   Line 3                                 │  ← entity chips
 ├──────────────────────────────────────────┤
 │  🔍 Filter by label or type…             │  ← filter bar
 ├──────────────────────────────────────────┤
-│  Selected: Line 3                        │  ← entity readout (canvas→palette)
-├──────────────────────────────────────────┤
-│  GEOMETRIC CONSTRAINTS (6)             ▾ │  ← collapsible section header
-│  [⊥] Perpendicular — Line 1 ⊥ Line 2   □│
-│  [∥] Parallel — Line 3 ∥ Line 4        □│
+│  GEOMETRIC CONSTRAINTS (6)            ▾  │  ← collapsible section
+│  [⊥] Perpendicular — Line 1 ⊥ Line 2  □ │
+│  [∥] Parallel — Line 3 ∥ Line 4       □ │
 │  …                                       │
-│  DIMENSIONS (3)                        ▾ │
-│  [◇] Linear: 40 mm   Line 1 → Line 3  □│
+│  DIMENSIONS (3)                       ▾  │
+│  [◇] Linear: 40 mm   Line 1 → Line 3  □ │
 │  …                                       │
-│  ENDPOINT JOINS (4)                    ▾ │
+│  ENDPOINT JOINS (4)                   ▾  │
 │  [⊘] Endpoint join — Point 1 connects…  │
+├──────────────────────────────────────────┤
+│  PROPERTIES OF SELECTED:                 │  ← properties footer (hidden when empty)
+│  Line 3   Length 42.5 mm                 │
 └──────────────────────────────────────────┘
 ```
 
@@ -81,31 +85,43 @@ One toggle button sits on the right end of the name bar:
 |---|---|
 | **Clear** | Deselects all checked rows (visible only when rows are checked). |
 | **Delete N** | Deletes all checked rows at once after a confirmation prompt (visible only when rows are checked). |
-| **Show underconstraint elements** | Calls Fusion's built-in Show Underconstrained command and displays the result as a toast. Requires an active sketch edit context. |
-| **Find** | Reads the currently selected entity on the canvas and scrolls the palette to every row that references it, highlighted in blue. |
+| **Show underconstraint elements** | Calls Fusion's built-in Show Underconstrained command. Under-constrained entities are surfaced as clickable chips in the "Selected:" strip. Requires an active sketch edit context. |
 | **Refresh** | Manually re-scans the active sketch. Usually not needed — the palette refreshes automatically after every sketch edit. |
+
+### Selected section (canvas → palette, automatic)
+
+Appears automatically above the filter bar whenever you select anything on the canvas. No button click required — the palette listens to Fusion's `activeSelectionChanged` event.
+
+- Shows the selected entity or entities as clickable chips (e.g. `Line 3`, `Circle 1`).
+- Every row in the list that references any selected entity is highlighted with a blue left border and scrolled into view.
+- Clicking a chip sets the filter bar to that entity's label and selects it on the canvas.
+- The section hides itself when nothing is selected.
+
+The **⌕** button at the right end of the "Selected:" header controls **auto-zoom**:
+- **Off (default):** camera stays where it is.
+- **On:** each selection repositions the camera so the selected geometry fills the viewport (bounding-box fit with 1.5× padding). Useful for locating tiny construction lines.
+- Preference is persisted in `localStorage` and restored on palette reopen.
+
+When "Show underconstraint elements" is triggered, the section header changes to "Underconstrained:" and shows chips for all under-constrained entities instead of the generic canvas selection.
 
 ### Filter bar
 
 Type any text to narrow the list. Matches against constraint labels, constraint type names, and entity chip labels (e.g. type `"Line 3"` to find every constraint that involves Line 3). The section headers update to show `(N of M)` when a filter is active. Clear the field to restore the full list.
 
-### Entity readout strip
+### Properties of selected footer
 
-Appears below the filter bar when **Find** is used. Shows the canvas label of the selected entity ("Selected: Line 3") so you know which entity the palette is currently highlighting rows for.
+A footer at the bottom of the palette shows the name and key measured properties of the currently selected entity — useful when the palette is docked over Fusion's own bottom-right status corner. Updates immediately on every selection change; hides itself when nothing is selected.
 
-### Selection-info footer
-
-A footer at the bottom of the palette mirrors Fusion's own bottom-right status overlay so the readout stays visible even when the palette is docked over that corner. Shows the entity name plus its key properties:
-
-- Sketch line / B-Rep edge → `Length`.
-- Sketch circle → `Radius`, `Diameter`.
-- Sketch arc → `Radius`, `Sweep` angle.
-- Sketch ellipse → `Major`, `Minor` axis radii.
-- Sketch point → `X`, `Y` coordinates (sketch plane).
-- Sketch dimension → current `Value` (expression).
-- B-Rep face → `Area`. B-Rep body → `Volume` and `Area`.
-
-The footer updates immediately via `UserInterface.activeSelectionChanged` (push-based, no polling) and hides itself when nothing is selected.
+| Entity type | Properties shown |
+|---|---|
+| Sketch line / B-Rep edge | `Length` |
+| Sketch circle | `Radius`, `Diameter` |
+| Sketch arc | `Radius`, `Sweep` angle |
+| Sketch ellipse | `Major`, `Minor` axis radii |
+| Sketch point | `X`, `Y` coordinates (sketch plane) |
+| Sketch dimension | current `Value` (expression) |
+| B-Rep face | `Area` |
+| B-Rep body | `Volume`, `Area` |
 
 ---
 
@@ -163,15 +179,6 @@ Check the checkbox on the right side of any row to select it for bulk deletion. 
 Click **Clear** to uncheck all rows without deleting.
 
 > Implicit endpoint join rows (marked "implicit") have no checkbox — they cannot be deleted.
-
-### Find: canvas → palette lookup
-
-The **Find** button bridges the gap between selecting something on the canvas and finding it in the palette:
-1. Select any sketch entity on the canvas (click a line, arc, point, or dimension).
-2. Click **Find** in the palette toolbar.
-3. Every row that references the selected entity is highlighted with a blue left border, and the palette auto-scrolls to the first match. The entity readout strip shows which entity was found.
-
-This works for both geometry (lines, arcs, circles, points) and constraint objects.
 
 ### Collapsible sections
 

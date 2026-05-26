@@ -2,7 +2,36 @@
 
 ---
 
-## v1.0.0 (current)
+## v1.3.1 (current)
+
+**Auto-zoom to selection — opt-in ⌕ toggle.**
+
+- Added an **auto-zoom toggle (⌕)** in the "Selected:" section header. When on, every canvas selection repositions the camera to frame the selected entity (bounding-box fit, 1.5× padding, 0.5 cm min / 50 cm max). Works for single and multi-entity selections; skips silently on any API error.
+- Toggle state is persisted in `localStorage` and restored on palette reopen.
+- Default off — the camera is never moved unless the user explicitly enables this feature.
+
+---
+
+## v1.3.0
+
+**Automatic canvas → palette lookup; "Show underconstrained" chips.**
+
+- **Find button removed.** Canvas-to-palette lookup is now automatic: selecting anything on the canvas instantly highlights matching rows (blue left border), auto-scrolls to the first match, and shows entity chips in the new "Selected:" header strip above the filter bar. Powered by `activeSelectionChanged` (push-based, no polling, no button click).
+- **"Selected:" section** appears above the filter bar when entities are selected; hides itself when nothing is selected. Entity chips in this strip are clickable — clicking sets the filter and selects the entity on the canvas.
+- **"Show underconstraint elements"** now surfaces results as clickable entity chips labelled "Underconstrained:" in the same strip, instead of a plain text toast. A 750 ms suppression window prevents the text command's own selection side-effect from overwriting the labelled push.
+- **Layout** restructured: entity readout above the filter bar; a "Properties of selected:" section header added above the existing selection-info footer.
+
+---
+
+## v1.2.2
+
+**Restore docked-palette resize affordance.**
+
+- `setMaximumSize(420, 700)` is called after palette creation to re-arm Fusion's Qt dock-widget resize handle. `isResizable=True` alone does not activate the resize affordance when the palette is docked; the explicit size call is required.
+
+---
+
+## v1.0.0
 
 **Full v1 feature set — all 21 backlog items complete.**
 
