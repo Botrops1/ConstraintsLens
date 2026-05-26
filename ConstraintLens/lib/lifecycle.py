@@ -319,11 +319,14 @@ def _show_palette() -> None:
     # handles docking natively and remembers the last position across
     # sessions, so any state we'd impose would override the user's choice.
 
-    # setMaximumSize(0, 0) removes any size cap *and* re-arms Fusion's Qt
-    # dock-widget resize affordance, which isResizable=True alone does not
-    # activate when the palette is in a docked position.
+    # setMaximumSize with finite values re-arms Fusion's Qt dock-widget
+    # resize affordance, which isResizable=True alone does not activate
+    # when the palette is in a docked position. (0, 0) is a no-op cap and
+    # does NOT trigger the same effect — finite values are required.
+    # The cap is intentionally larger than any plausible monitor so the
+    # user is never practically constrained.
     try:
-        _palette.setMaximumSize(0, 0)
+        _palette.setMaximumSize(9999, 9999)
     except Exception:
         pass
 
