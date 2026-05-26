@@ -9,9 +9,10 @@
 The v1.2.2 resize-affordance fix called `setMaximumSize(420, 700)`, which
 re-armed Fusion's Qt dock-widget resize handle as intended but also
 imposed a hard 420×700 size cap. The palette opens at 420×600, so users
-could only grow it by 100 px before the drag became a no-op. The call
-now uses large finite values (`9999, 9999`) — same arming side effect,
-no practical cap.
+could only grow it by 100 px before the drag became a no-op. The fix
+calls `setMaximumSize(420, 700)` to arm the handle, then immediately
+calls `setMaximumSize(0, 0)` to clear the cap — `(0, 0)` is documented
+as "no restriction" and removes the limit once the handle is already armed.
 
 ---
 
