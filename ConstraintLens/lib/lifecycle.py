@@ -332,12 +332,11 @@ def _show_palette() -> None:
 
     # setMaximumSize re-arms Fusion's Qt dock-widget resize affordance,
     # which isResizable=True alone does not activate when docked.
-    # (0, 0) is documented as "no restriction" but short-circuits before
-    # arming, so we pass finite values to trigger the side effect, then
-    # immediately clear the cap with (0, 0).
+    # We use a moderate cap (420×500) that is small enough to allow
+    # resizing within typical screen heights; (0,0) and very large
+    # values (>=9999) are both broken in this Fusion build.
     try:
-        _palette.setMaximumSize(420, 700)  # arm the handle
-        _palette.setMaximumSize(0, 0)      # clear the cap
+        _palette.setMaximumSize(420, 500)
     except Exception:
         pass
 
