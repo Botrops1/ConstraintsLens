@@ -17,6 +17,7 @@ ACTION_EDIT_DIMENSION = "editDimension"
 ACTION_FIND_SELECTED = "findSelected"
 ACTION_OPEN_EDIT_DIALOG = "openEditDialog"
 ACTION_EDIT_PARAMETER = "editParameter"
+ACTION_SET_AUTO_ZOOM = "setAutoZoom"
 
 PY_ACTION_DATA = "data"
 PY_ACTION_NO_ACTIVE_SKETCH = "noActiveSketch"

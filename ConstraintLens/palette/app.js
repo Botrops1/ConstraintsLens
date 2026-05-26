@@ -17,6 +17,7 @@
         editDimension: "editDimension",
         openEditDialog: "openEditDialog",
         editParameter: "editParameter",
+        setAutoZoom: "setAutoZoom",
     };
 
     const PY_TO_JS = {
@@ -154,6 +155,7 @@
         entityReadout: document.getElementById("entity-readout"),
         selectedSection: document.getElementById("selected-section"),
         selectedLabel: document.getElementById("selected-label"),
+        autozoomToggle: document.getElementById("autozoom-toggle"),
         themeToggle: document.getElementById("theme-toggle"),
         selectionFooter: document.getElementById("selection-footer"),
         footerSection: document.getElementById("footer-section"),
@@ -763,6 +765,24 @@
         attempt();
     }
 
+    // --- Auto-zoom toggle (Pack 4) ---------------------------------------
+
+    let autoZoomOn = localStorage.getItem("cl-autozoom") === "true";
+
+    function updateAutoZoomButton() {
+        els.autozoomToggle.classList.toggle("active", autoZoomOn);
+        els.autozoomToggle.title = autoZoomOn
+            ? "Auto-zoom to selection (on — click to disable)"
+            : "Auto-zoom to selection (off — click to enable)";
+    }
+
+    els.autozoomToggle.addEventListener("click", () => {
+        autoZoomOn = !autoZoomOn;
+        localStorage.setItem("cl-autozoom", String(autoZoomOn));
+        updateAutoZoomButton();
+        send(JS_TO_PY.setAutoZoom, { enabled: autoZoomOn });
+    });
+
     // --- Theme toggle (#5) -----------------------------------------------
 
     function updateThemeButton(theme) {
@@ -782,7 +802,8 @@
         const savedTheme = localStorage.getItem("cl-theme") || "dark";
         document.documentElement.setAttribute("data-theme", savedTheme);
         updateThemeButton(savedTheme);
+        updateAutoZoomButton();
         state.loaded = true;
-        _sendWhenReady(JS_TO_PY.paletteReady, {});
+        _sendWhenReady(JS_TO_PY.paletteReady, { autoZoom: autoZoomOn });
     });
 })();

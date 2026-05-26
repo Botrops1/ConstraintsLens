@@ -402,7 +402,25 @@ main::-webkit-scrollbar-thumb:hover { background: var(--fg-muted); }
     background: var(--bg-elev);
     border-bottom: 1px solid var(--border);
     flex-shrink: 0;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
 }
+
+.btn-icon {
+    background: none;
+    border: none;
+    color: var(--fg-muted);
+    font-size: 13px;
+    line-height: 1;
+    cursor: pointer;
+    padding: 0 2px;
+    border-radius: 2px;
+    opacity: 0.5;
+}
+
+.btn-icon:hover { opacity: 1; color: var(--fg); }
+.btn-icon.active { opacity: 1; color: var(--accent); }
 
 .section-label-footer {
     border-bottom: none;

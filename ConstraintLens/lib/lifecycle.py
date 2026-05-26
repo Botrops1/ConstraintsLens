@@ -33,6 +33,9 @@ _button_control: adsk.core.ToolbarControl | None = None
 # (whether Fusion fires that event synchronously or after a brief delay).
 _swallow_selection_until: float = 0.0
 
+# Set by JS on paletteReady and whenever the toggle is clicked.
+_auto_zoom: bool = False
+
 
 # --- Lifecycle entry points ---------------------------------------------
 
@@ -357,6 +360,9 @@ def _on_palette_message(action: str, raw: str) -> None:
     payload = messaging.parse_incoming(raw)
 
     if action == messaging.ACTION_PALETTE_READY or action == messaging.ACTION_REQUEST_REFRESH:
+        if action == messaging.ACTION_PALETTE_READY:
+            global _auto_zoom
+            _auto_zoom = bool(payload.get("autoZoom", False))
         _publish_active(app)
         _push_selection_info(app)
         _push_selection_tokens(app)
@@ -398,6 +404,11 @@ def _on_palette_message(action: str, raw: str) -> None:
         _handle_edit_parameter(app, payload)
         return
 
+    if action == messaging.ACTION_SET_AUTO_ZOOM:
+        global _auto_zoom
+        _auto_zoom = bool(payload.get("enabled", False))
+        return
+
     # Unknown action — log and ignore (forward-compat per SPEC.md section 7).
 
 
@@ -420,6 +431,7 @@ def _on_selection_changed() -> None:
         return
     _push_selection_info(app)
     _push_selection_tokens(app)
+    _zoom_to_active_selection(app)
 
 
 def _push_selection_info(app: adsk.core.Application) -> None:
@@ -456,6 +468,66 @@ def _push_selection_tokens(app: adsk.core.Application, prefix: str = "Selected:"
         "tokens": entity_tokens,
         "prefix": prefix,
     })
+
+
+# Camera zoom constants (all values in Fusion internal units = cm).
+_ZOOM_PADDING = 1.5   # multiply half-diagonal by this factor
+_ZOOM_MIN_EXTENT = 0.5   # floor so a point doesn't zoom to nothing
+_ZOOM_MAX_EXTENT = 50.0  # skip if union bbox is very large (whole sketch)
+
+
+def _zoom_to_active_selection(app: adsk.core.Application) -> None:
+    """Reframe the viewport to fit the active selection. No-op when
+    _auto_zoom is False, selection is empty, or any error occurs."""
+    if not _auto_zoom:
+        return
+    try:
+        ui = app.userInterface
+        sel = ui.activeSelections
+        if sel.count == 0:
+            return
+
+        # Union all entity bounding boxes.
+        INF = float("inf")
+        min_x = min_y = min_z = INF
+        max_x = max_y = max_z = -INF
+        found = False
+        for i in range(sel.count):
+            try:
+                bbox = sel.item(i).entity.boundingBox
+                if bbox is None:
+                    continue
+                mn, mx = bbox.minPoint, bbox.maxPoint
+                min_x = min(min_x, mn.x); min_y = min(min_y, mn.y); min_z = min(min_z, mn.z)
+                max_x = max(max_x, mx.x); max_y = max(max_y, mx.y); max_z = max(max_z, mx.z)
+                found = True
+            except Exception:
+                continue
+        if not found:
+            return
+
+        cx = (min_x + max_x) / 2
+        cy = (min_y + max_y) / 2
+        cz = (min_z + max_z) / 2
+        half_diag = ((max_x - min_x) ** 2 + (max_y - min_y) ** 2 + (max_z - min_z) ** 2) ** 0.5 / 2
+        extent = max(half_diag * _ZOOM_PADDING, _ZOOM_MIN_EXTENT)
+        if extent > _ZOOM_MAX_EXTENT:
+            return
+
+        vp = app.activeViewport
+        if vp is None:
+            return
+        cam = vp.camera
+        cam.target = adsk.core.Point3D.create(cx, cy, cz)
+        cam.viewExtents = extent
+        try:
+            cam.isSmoothTransition = True
+        except Exception:
+            pass
+        vp.camera = cam
+        vp.refresh()
+    except Exception:
+        pass
 
 
 def _build_selection_info(app: adsk.core.Application) -> dict:
