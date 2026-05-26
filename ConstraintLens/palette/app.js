@@ -155,6 +155,7 @@
         entityReadout: document.getElementById("entity-readout"),
         selectedSection: document.getElementById("selected-section"),
         selectedLabel: document.getElementById("selected-label"),
+        selectedLabelText: document.getElementById("selected-label-text"),
         autozoomToggle: document.getElementById("autozoom-toggle"),
         themeToggle: document.getElementById("theme-toggle"),
         selectionFooter: document.getElementById("selection-footer"),
@@ -276,7 +277,7 @@
     function onSelectionResult(payload) {
         const tokens = payload.tokens || [];
         const prefix = payload.prefix || "Selected:";
-        els.selectedLabel.textContent = prefix;
+        els.selectedLabelText.textContent = prefix;
         state.highlights.clear();
 
         if (!state.snapshot || tokens.length === 0) {
