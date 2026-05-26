@@ -319,6 +319,14 @@ def _show_palette() -> None:
     # handles docking natively and remembers the last position across
     # sessions, so any state we'd impose would override the user's choice.
 
+    # setMaximumSize(0, 0) removes any size cap *and* re-arms Fusion's Qt
+    # dock-widget resize affordance, which isResizable=True alone does not
+    # activate when the palette is in a docked position.
+    try:
+        _palette.setMaximumSize(0, 0)
+    except Exception:
+        pass
+
     events.register_palette(_palette, _on_palette_message, _on_palette_closed)
     _publish_active(app)
     _push_selection_info(app)
