@@ -2,7 +2,20 @@
 
 ---
 
-## v1.3.1 (current)
+## v1.3.2 (current)
+
+**Bug fix: docked palette could not be resized beyond 700 px tall.**
+
+The v1.2.2 resize-affordance fix called `setMaximumSize(420, 700)`, which
+re-armed Fusion's Qt dock-widget resize handle as intended but also
+imposed a hard 420×700 size cap. The palette opens at 420×600, so users
+could only grow it by 100 px before the drag became a no-op. The call
+now uses large finite values (`9999, 9999`) — same arming side effect,
+no practical cap.
+
+---
+
+## v1.3.1
 
 **Auto-zoom to selection — opt-in ⌕ toggle.**
 
