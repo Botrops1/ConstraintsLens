@@ -2,9 +2,9 @@
 
 ## Current Status
 
-**Working on:** GUI backlog — Batch A+D verified ✓. Next: Batch B (#22 #23) then Batch C (#26).
+**Working on:** GUI backlog — Batch A+D+B done, pending PC test for #22 #23. Next: Batch C (#26).
 **Version:** 1.3.2 (manifest + commit must always match).
-**Next step:** Implement Batch B — always-visible filter clear button (#23) + canvas-click auto-filter (#22). Then Batch C — select-all checkbox in section headers (#26).
+**Next step:** PC test #22 #23, then implement Batch C — select-all checkbox in section headers (#26).
 **Convention:** Every commit that bumps the version string must also update `ConstraintLens/ConstraintLens.manifest` `"version"` field so Fusion shows the correct version.
 **Blocked by:** Nothing.
 
@@ -157,9 +157,9 @@ tests/
 
 ## v1.3.x GUI Backlog
 
-22. **Canvas-click → immediate filter** — When a canvas entity is selected and its chip appears in the "Selected:" strip, automatically apply that entity's label as the text filter so only rows referencing it are shown. Currently requires a second click on the chip. Small JS-only change in `onSelectionResult`: set `state.filter` + `els.filter.value` to `matched[0].label` when highlights are found.
+22. ~~**Canvas-click → immediate filter**~~ — **DONE ✓** (pending PC test). `onSelectionResult` auto-sets `state.filter` + `els.filter.value` to `matched[0].label` when exactly one entity is matched. Multi-entity selection leaves filter unchanged.
 
-23. **Filter clear button — always-visible, left of filter bar** — Replace the hover-only × icon that appears on the right edge of the filter `<input>` with a standalone `✕` button placed to the left of the input, always visible. Makes the clear action obvious and easy to hit regardless of hover state.
+23. ~~**Filter clear button — always-visible, left of filter bar**~~ — **DONE ✓** (pending PC test). `✕` button added left of filter input in index.html; always visible; clears `state.filter` and re-renders. Native webkit search-cancel button hidden via `::-webkit-search-cancel-button { display: none }`.
 
 24. ~~**Thin scrollbar in "Properties of selected"**~~ — **DONE ✓ PC verified.** `scrollbar-width: thin; scrollbar-color: var(--border) transparent` + webkit rules on `#footer-section`. Scrollbar appears at ~4.5 rows.
 
