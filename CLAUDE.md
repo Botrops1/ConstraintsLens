@@ -2,9 +2,9 @@
 
 ## Current Status
 
-**Working on:** GUI backlog — Batch A+D+B done, pending PC test for #22 #23. Next: Batch C (#26).
+**Working on:** Maintenance / community issues.
 **Version:** 1.3.2 (manifest + commit must always match).
-**Next step:** PC test #22 #23, then implement Batch C — select-all checkbox in section headers (#26).
+**Next step:** Monitor for new issues. v1.3.x GUI backlog (#22–#29) fully implemented and PC verified.
 **Convention:** Every commit that bumps the version string must also update `ConstraintLens/ConstraintLens.manifest` `"version"` field so Fusion shows the correct version.
 **Blocked by:** Nothing.
 
@@ -165,7 +165,7 @@ tests/
 
 25. ~~**"Selected" chip strip — max 3 rows, then scroll**~~ — **DONE ✓ PC verified.** `max-height: 96px; overflow-y: auto` + thin scrollbar on `#entity-readout`. Scrollbar appears at ~4.5 chip rows.
 
-26. **"Select all" checkbox in section headers** — Add a checkbox to the left of the chevron on "Geometric Constraints", "Dimensions", and "Patterns" section headers. Checking it adds all currently-filtered deletable rows in that section to `state.selected`; unchecking removes them. Updates the bulk-delete button count. (Endpoint joins section excluded — non-deletable.)
+26. ~~**"Select all" checkbox in section headers**~~ — **DONE ✓ PC verified.** Checkbox left of chevron in Geometric Constraints, Dimensions, and Patterns headers. Checked = all filtered deletable rows selected; indeterminate = some; unchecked = none. Row checkbox changes update section checkbox live. Clicking checkbox does not collapse the section. Endpoint Joins excluded (non-deletable).
 
 27. ~~**Profile handling in "Properties of selected"**~~ — **DONE ✓ PC verified.** `_selection_props()` returns Area for `adsk.fusion.Profile` via `entity.areaProperties().area`; label shows loop count (`"Profile (2 loops)"`). `_format_selection_entity()` suppresses items where props is empty and label is the raw type name.
 
