@@ -336,6 +336,11 @@ main::-webkit-scrollbar-thumb:hover { background: var(--fg-muted); }
     border-color: var(--accent);
 }
 
+.filter-bar input[type="search"]::-webkit-search-cancel-button {
+    -webkit-appearance: none;
+    display: none;
+}
+
 .filter-bar input[type="search"]::placeholder {
     color: var(--fg-muted);
 }
