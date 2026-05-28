@@ -500,8 +500,12 @@ def _zoom_to_active_selection(app: adsk.core.Application) -> None:
                 if bbox is None:
                     continue
                 mn, mx = bbox.minPoint, bbox.maxPoint
-                min_x = min(min_x, mn.x); min_y = min(min_y, mn.y); min_z = min(min_z, mn.z)
-                max_x = max(max_x, mx.x); max_y = max(max_y, mx.y); max_z = max(max_z, mx.z)
+                min_x = min(min_x, mn.x)
+                min_y = min(min_y, mn.y)
+                min_z = min(min_z, mn.z)
+                max_x = max(max_x, mx.x)
+                max_y = max(max_y, mx.y)
+                max_z = max(max_z, mx.z)
                 found = True
             except Exception:
                 continue
