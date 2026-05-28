@@ -157,6 +157,7 @@
         selectedLabel: document.getElementById("selected-label"),
         selectedLabelText: document.getElementById("selected-label-text"),
         autozoomToggle: document.getElementById("autozoom-toggle"),
+        filterClear: document.getElementById("filter-clear"),
         themeToggle: document.getElementById("theme-toggle"),
         selectionFooter: document.getElementById("selection-footer"),
         footerSection: document.getElementById("footer-section"),
@@ -176,6 +177,11 @@
     els.highlightUnder.addEventListener("click", () => send(JS_TO_PY.showUnderconstrained, {}));
     els.filter.addEventListener("input", () => {
         state.filter = els.filter.value.trim().toLowerCase();
+        renderSnapshot();
+    });
+    els.filterClear.addEventListener("click", () => {
+        state.filter = "";
+        els.filter.value = "";
         renderSnapshot();
     });
     els.bulkDelete.addEventListener("click", () => {
@@ -317,6 +323,12 @@
             showReadoutChips(matched);
         } else {
             showEntityReadout("Selected entity not in any row.");
+        }
+
+        // #22 — auto-filter to the selected entity when exactly one is matched.
+        if (matched.length === 1) {
+            state.filter = matched[0].label.toLowerCase();
+            els.filter.value = matched[0].label;
         }
 
         // #7 — collect matching row keys.

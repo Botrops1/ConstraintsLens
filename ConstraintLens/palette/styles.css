@@ -297,10 +297,30 @@ main::-webkit-scrollbar-thumb:hover { background: var(--fg-muted); }
     background: var(--bg-elev);
     border-bottom: 1px solid var(--border);
     flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    gap: 6px;
 }
 
+.btn-filter-clear {
+    flex-shrink: 0;
+    width: 22px;
+    height: 22px;
+    background: var(--bg-row);
+    border: 1px solid var(--border);
+    color: var(--fg-muted);
+    font-size: 10px;
+    cursor: pointer;
+    border-radius: 2px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+}
+.btn-filter-clear:hover { background: var(--bg-row-hover); color: var(--fg); }
+
 .filter-bar input[type="search"] {
-    width: 100%;
+    flex: 1;
     background: var(--bg-row);
     border: 1px solid var(--border);
     color: var(--fg);
@@ -453,8 +473,8 @@ main::-webkit-scrollbar-thumb:hover { background: var(--fg-muted); }
     align-items: center;
     gap: 3px;
     flex-shrink: 0;
-    /* Item #25: cap chip strip at ~3 chip rows then scroll */
-    max-height: 96px;
+    /* Item #25: cap chip strip at 3 chip rows then scroll */
+    max-height: 68px;
     overflow-y: auto;
     scrollbar-width: thin;
     scrollbar-color: var(--border) transparent;
@@ -486,10 +506,10 @@ main::-webkit-scrollbar-thumb:hover { background: var(--fg-muted); }
 
 .hidden { display: none !important; }
 
-/* Item #28: cap "Properties of selected" at ~3 entity rows then scroll */
+/* Item #28: cap "Properties of selected" at 3 entity rows then scroll */
 #footer-section {
     flex-shrink: 0;
-    max-height: 110px;
+    max-height: 76px;
     overflow-y: auto;
     scrollbar-width: thin;
     scrollbar-color: var(--border) transparent;
