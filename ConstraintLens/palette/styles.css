@@ -362,6 +362,17 @@ main::-webkit-scrollbar-thumb:hover { background: var(--fg-muted); }
     width: 16px;
 }
 
+/* --- Section select-all checkbox (#26) ------------------------------ */
+
+.section-check {
+    flex-shrink: 0;
+    width: 13px;
+    height: 13px;
+    margin-right: 4px;
+    accent-color: var(--accent);
+    cursor: pointer;
+}
+
 /* --- Highlighted rows from canvas Find (#7) ------------------------- */
 
 .row.highlighted {

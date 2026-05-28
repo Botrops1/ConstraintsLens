@@ -435,7 +435,10 @@
         _renderSection(parts, "joins",       "Endpoint joins",        j, allJ.length, q);
 
         els.root.innerHTML = parts.join("");
+        _updateSectionCheckboxes();
     }
+
+    const _SECTIONS_WITH_SELECT_ALL = new Set(["constraints", "dimensions", "patterns"]);
 
     function _renderSection(parts, id, title, rows, totalCount, q) {
         if (rows.length === 0) return;
@@ -444,8 +447,20 @@
         const countLabel = q
             ? `${rows.length} of ${totalCount}`
             : `${totalCount}`;
+
+        let checkboxHTML = "";
+        if (_SECTIONS_WITH_SELECT_ALL.has(id)) {
+            const deletable = rows.filter(r => !r.isPseudo && r.isDeletable && r.token).map(r => r.token);
+            const allChecked = deletable.length > 0 && deletable.every(t => state.selected.has(t));
+            checkboxHTML =
+                `<input type="checkbox" class="section-check" data-section="${id}" ` +
+                `data-tokens="${escape(JSON.stringify(deletable))}" ` +
+                `${allChecked ? "checked" : ""} title="Select all in this section">`;
+        }
+
         parts.push(
             `<div class="section-header" data-section="${id}" role="button" title="Click to collapse/expand">` +
+            checkboxHTML +
             `<span class="section-title">${title} (${countLabel})</span>` +
             `<span class="section-chevron">${chevron}</span>` +
             `</div>`
@@ -455,6 +470,16 @@
             for (const row of rows) parts.push(rowHTML(row));
             parts.push(`</div>`);
         }
+    }
+
+    function _updateSectionCheckboxes() {
+        els.root.querySelectorAll(".section-check").forEach(cb => {
+            let tokens = [];
+            try { tokens = JSON.parse(cb.getAttribute("data-tokens") || "[]"); } catch (e) {}
+            const n = tokens.filter(t => state.selected.has(t)).length;
+            cb.checked = n > 0 && n === tokens.length;
+            cb.indeterminate = n > 0 && n < tokens.length;
+        });
     }
 
     // Native PNG load failure → swap in the SVG from TYPE_ICONS.
@@ -579,6 +604,18 @@
 
     // Checkbox changes update selection state independently of row clicks.
     els.root.addEventListener("change", (evt) => {
+        if (evt.target.matches(".section-check")) {
+            let tokens = [];
+            try { tokens = JSON.parse(evt.target.getAttribute("data-tokens") || "[]"); } catch (e) {}
+            if (evt.target.checked) {
+                tokens.forEach(t => state.selected.add(t));
+            } else {
+                tokens.forEach(t => state.selected.delete(t));
+            }
+            updateBulkDeleteButton();
+            renderSnapshot();
+            return;
+        }
         if (!evt.target.matches(".row-check")) return;
         const token = evt.target.getAttribute("data-token") || "";
         if (!token) return;
@@ -588,11 +625,12 @@
             state.selected.delete(token);
         }
         updateBulkDeleteButton();
+        _updateSectionCheckboxes();
     });
 
     els.root.addEventListener("click", (evt) => {
         // Checkbox clicks are handled by the change listener above.
-        if (evt.target.matches(".row-check")) return;
+        if (evt.target.matches(".row-check, .section-check")) return;
 
         // Section header click (#14) — toggle collapse.
         const header = evt.target.closest(".section-header[data-section]");
