@@ -2,9 +2,9 @@
 
 ## Current Status
 
-**Working on:** Maintenance / community issues.
+**Working on:** GUI backlog — Batch A (#24 #25 #28 #29) + Batch D (#27) committed, pending PC test. Batch B (#22 #23) and Batch C (#26) next.
 **Version:** 1.3.2 (manifest + commit must always match).
-**Next step:** Monitor for new issues; Pack 4 (auto-zoom) shipped — pending PC test of camera API behaviour.
+**Next step:** PC test eaf580e (scrollbars, height caps, zoom label, profile area). Then implement Batch B (filter clear button + canvas-click auto-filter) and Batch C (select-all checkbox).
 **Convention:** Every commit that bumps the version string must also update `ConstraintLens/ConstraintLens.manifest` `"version"` field so Fusion shows the correct version.
 **Blocked by:** Nothing.
 
@@ -152,3 +152,23 @@ tests/
 19. ~~**Larger constraint icons in rows**~~ — **DONE ✓** Icons increased to 24×24 px. SVG fallbacks updated (viewBox kept at 16×16, rendered size 24). PNG copy now prefers 32×32 source (scales down cleanly) with 16×16 fallback.
 20. ~~**"Select constraint object" moved to icon**~~ — **DONE ✓** Clicking the constraint icon (left glyph) now triggers `selectConstraint` directly. The separate ⌖ button on the right has been removed. Pseudo/join rows keep the ⊘ lock indicator unchanged.
 21. **Chip click → also select object on canvas** — **DONE ✓** Chip now carries `data-token`; click handler sends `selectEntities` in addition to setting the filter.
+
+---
+
+## v1.3.x GUI Backlog
+
+22. **Canvas-click → immediate filter** — When a canvas entity is selected and its chip appears in the "Selected:" strip, automatically apply that entity's label as the text filter so only rows referencing it are shown. Currently requires a second click on the chip. Small JS-only change in `onSelectionResult`: set `state.filter` + `els.filter.value` to `matched[0].label` when highlights are found.
+
+23. **Filter clear button — always-visible, left of filter bar** — Replace the hover-only × icon that appears on the right edge of the filter `<input>` with a standalone `✕` button placed to the left of the input, always visible. Makes the clear action obvious and easy to hit regardless of hover state.
+
+24. ~~**Thin scrollbar in "Properties of selected"**~~ — **DONE ✓** (pending PC test). `scrollbar-width: thin; scrollbar-color: var(--border) transparent` + webkit rules added to `#footer-section`.
+
+25. ~~**"Selected" chip strip — max 3 rows, then scroll**~~ — **DONE ✓** (pending PC test). `max-height: 96px; overflow-y: auto` + thin scrollbar added to `#entity-readout`.
+
+26. **"Select all" checkbox in section headers** — Add a checkbox to the left of the chevron on "Geometric Constraints", "Dimensions", and "Patterns" section headers. Checking it adds all currently-filtered deletable rows in that section to `state.selected`; unchecking removes them. Updates the bulk-delete button count. (Endpoint joins section excluded — non-deletable.)
+
+27. ~~**Profile handling in "Properties of selected"**~~ — **DONE ✓** (pending PC test). `_selection_props()` now returns Area for `adsk.fusion.Profile` via `entity.areaProperties().area`; label shows loop count (`"Profile (2 loops)"`). `_format_selection_entity()` suppresses any item where props is empty and label is the raw type name — prevents empty rows for unsupported entity types.
+
+28. ~~**"Properties of selected" — one entity per row, max 3 rows, then scroll**~~ — **DONE ✓** (pending PC test). `.sel-item` changed to `display: flex` (one entity per row); `#footer-section` capped at `max-height: 110px; overflow-y: auto` with thin scrollbar.
+
+29. ~~**Zoom button — visible label + clearer active state**~~ — **DONE ✓** (pending PC test). Button text changed to `⌕ Zoom` in index.html. Active state now uses `background: var(--accent); color: #ffffff` fill instead of opacity-only toggle.
