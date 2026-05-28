@@ -44,21 +44,21 @@ Fills the long-standing UX gap of having to hunt tiny on-canvas glyphs to audit 
 │  [Clear] [Delete 0] [Show u/c] [Refresh] │  ← toolbar
 ├──────────────────────────────────────────┤
 │  SELECTED:                            ⌕  │  ← canvas selection (auto, hidden when empty)
-│   Line 3                                 │  ← entity chips
+│   Line 3                                 │  ← entity chips (scrolls after 3 rows)
 ├──────────────────────────────────────────┤
-│  🔍 Filter by label or type…             │  ← filter bar
+│  [✕] Filter by label or type…            │  ← filter bar (✕ always clears filter)
 ├──────────────────────────────────────────┤
-│  GEOMETRIC CONSTRAINTS (6)            ▾  │  ← collapsible section
+│  ☑ GEOMETRIC CONSTRAINTS (6)          ▾  │  ← collapsible section + select-all checkbox
 │  [⊥] Perpendicular — Line 1 ⊥ Line 2  □ │
 │  [∥] Parallel — Line 3 ∥ Line 4       □ │
 │  …                                       │
-│  DIMENSIONS (3)                       ▾  │
+│  ☑ DIMENSIONS (3)                     ▾  │
 │  [◇] Linear: 40 mm   Line 1 → Line 3  □ │
 │  …                                       │
 │  ENDPOINT JOINS (4)                   ▾  │
 │  [⊘] Endpoint join — Point 1 connects…  │
 ├──────────────────────────────────────────┤
-│  PROPERTIES OF SELECTED:                 │  ← properties footer (hidden when empty)
+│  PROPERTIES OF SELECTED:                 │  ← properties footer (scrolls after 3 rows)
 │  Line 3   Length 42.5 mm                 │
 └──────────────────────────────────────────┘
 ```
@@ -92,12 +92,13 @@ One toggle button sits on the right end of the name bar:
 
 Appears automatically above the filter bar whenever you select anything on the canvas. No button click required — the palette listens to Fusion's `activeSelectionChanged` event.
 
-- Shows the selected entity or entities as clickable chips (e.g. `Line 3`, `Circle 1`).
+- Shows the selected entity or entities as clickable chips (e.g. `Line 3`, `Circle 1`). The strip scrolls after three rows of chips.
 - Every row in the list that references any selected entity is highlighted with a blue left border and scrolled into view.
+- **When exactly one entity is selected**, the filter bar is automatically set to that entity's label, narrowing the list to every constraint involving it. Selecting multiple entities leaves the filter unchanged.
 - Clicking a chip sets the filter bar to that entity's label and selects it on the canvas.
 - The section hides itself when nothing is selected.
 
-The **⌕** button at the right end of the "Selected:" header controls **auto-zoom**:
+The **⌕ Zoom** button at the right end of the "Selected:" header controls **auto-zoom**:
 - **Off (default):** camera stays where it is.
 - **On:** each selection repositions the camera so the selected geometry fills the viewport (bounding-box fit with 1.5× padding). Useful for locating tiny construction lines.
 - Preference is persisted in `localStorage` and restored on palette reopen.
@@ -106,7 +107,9 @@ When "Show underconstraint elements" is triggered, the section header changes to
 
 ### Filter bar
 
-Type any text to narrow the list. Matches against constraint labels, constraint type names, and entity chip labels (e.g. type `"Line 3"` to find every constraint that involves Line 3). The section headers update to show `(N of M)` when a filter is active. Clear the field to restore the full list.
+The **✕** button on the left always clears the filter instantly. Type any text in the search field to narrow the list — matches against constraint labels, constraint type names, and entity chip labels (e.g. type `"Line 3"` to find every constraint that involves Line 3). The section headers update to show `(N of M)` when a filter is active.
+
+The filter is also set **automatically** when you click a single entity on the canvas — the palette immediately narrows to constraints that involve that entity. Click ✕ or clear the field manually to restore the full list.
 
 ### Properties of selected footer
 
@@ -122,6 +125,7 @@ A footer at the bottom of the palette shows the name and key measured properties
 | Sketch dimension | current `Value` (expression) |
 | B-Rep face | `Area` |
 | B-Rep body | `Volume`, `Area` |
+| Profile | `Area` |
 
 ---
 
@@ -171,7 +175,11 @@ This is the fastest way to answer "what constraints involve this line?".
 
 ### Bulk delete
 
-Check the checkbox on the right side of any row to select it for bulk deletion. Multiple rows can be checked at once. When at least one row is checked:
+Check the checkbox on the right side of any row to select it for bulk deletion. Multiple rows can be checked at once.
+
+Each section header (**Geometric Constraints**, **Dimensions**, **Patterns and figures**) has a **select-all checkbox** on its left. Clicking it checks all deletable rows in that section; clicking again unchecks them. The checkbox shows an indeterminate state (−) when only some rows in the section are checked.
+
+When at least one row is checked:
 - The **Delete N** button in the toolbar shows the count and becomes active.
 - Click **Delete N** → a confirmation dialog appears listing the constraint types and warning that Fusion's `Ctrl+Z` can undo the whole operation.
 - Confirm to delete all checked rows. The palette refreshes.
@@ -237,6 +245,7 @@ The palette automatically re-scans and updates after every Fusion sketch command
 - **`AssemblyConstraint`** (Constrain Components, January 2026 preview API) is not supported.
 - **Palette data may be stale after minimizing/restoring** the palette window — click **Refresh** or perform any sketch edit to trigger a rescan.
 - **No live highlight on canvas hover** — hovering a row does not draw a highlight overlay on the canvas (only a click triggers selection).
+- **Height resize unavailable when docked alone to the right edge** — Fusion's Qt dock system does not give custom palettes a height-drag splitter when there is no other panel on the same edge to split with. To enable height resizing, dock another native panel (e.g. Sketch Palette) alongside ConstraintLens on the same edge — both panels then share a splitter. Width can always be adjusted.
 
 ---
 

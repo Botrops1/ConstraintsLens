@@ -2,7 +2,34 @@
 
 ---
 
-## v1.3.2 (current)
+## v1.5.0 (current)
+
+**GUI improvements: auto-filter, section select-all, scrollable strips, ✕ clear button, profile area, auto-zoom toggle.**
+
+### Canvas click → auto-filter (#22)
+Selecting a single entity on the canvas now immediately sets the filter bar to that entity's label, narrowing the constraint list to every row that involves it. Multi-entity selections leave the filter unchanged. Click ✕ or clear the field to restore the full list.
+
+### Always-visible ✕ clear button (#23)
+A small **✕** button sits permanently to the left of the filter input. It clears the filter instantly without having to select the text field first. The redundant native browser cancel button (hidden by `-webkit-appearance`) is suppressed.
+
+### Scrollable "Selected:" strip, capped at 3 rows (#25)
+The entity chip strip above the filter bar now scrolls after 3 chip rows (`max-height: 68 px`) instead of expanding the palette arbitrarily. The scroll track uses the same thin Fusion-style scrollbar as the main list.
+
+### Scrollable "Properties of selected" footer, capped at 3 rows (#24)
+The selection-info footer at the bottom scrolls after 3 entity rows (`max-height: 76 px`) and also uses the thin scrollbar style.
+
+### Section select-all checkboxes (#26)
+Each of the **Geometric Constraints**, **Dimensions**, and **Patterns and figures** section headers now has a checkbox on the left. Clicking it selects all deletable rows in that section; clicking again deselects them. The checkbox shows an indeterminate state (−) when only some rows in the section are checked.
+
+### Profile area in footer (#27)
+Selecting a sketch **Profile** (closed loop) in the footer section now shows its computed **Area** (in the active document units). Previously the footer showed a bare "Profile" label with no properties.
+
+### Auto-zoom toggle labeled (#29)
+The ⌕ auto-zoom toggle button in the "Selected:" header now reads **⌕ Zoom** for clarity. Active state uses a filled accent background so the on/off state is unambiguous at a glance.
+
+---
+
+## v1.3.2
 
 **Bug fix: docked palette could not be resized beyond 700 px tall.**
 
