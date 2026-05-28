@@ -573,10 +573,33 @@ def _build_selection_info(app: adsk.core.Application) -> dict:
 def _format_selection_entity(entity, units, labeler) -> dict | None:
     label = _selection_label(entity, labeler)
     props = _selection_props(entity, units)
+    # Suppress items whose props list is empty and whose label is just a raw
+    # type name (i.e. the labeler had nothing better to offer). This prevents
+    # the footer from showing e.g. "Profile" with a blank property list when
+    # the area read fails, or any future entity type with no useful properties.
+    if not props:
+        raw_type_name = _raw_type_name(entity)
+        if label == raw_type_name:
+            return None
     return {"label": label, "props": props}
 
 
+def _raw_type_name(entity) -> str:
+    """Return the bare type name from objectType, e.g. 'Profile'."""
+    try:
+        return entity.objectType.split("::")[-1]
+    except Exception:
+        return "<entity>"
+
+
 def _selection_label(entity, labeler) -> str:
+    # Profile: include loop count for a more informative label.
+    if isinstance(entity, adsk.fusion.Profile):
+        try:
+            n = entity.profileLoops.count
+            return f"Profile ({n} loop{'s' if n != 1 else ''})"
+        except Exception:
+            return "Profile"
     if labeler is not None:
         try:
             lbl = labeler.label_for(entity)
@@ -584,10 +607,7 @@ def _selection_label(entity, labeler) -> str:
                 return lbl
         except Exception:
             pass
-    try:
-        return entity.objectType.split("::")[-1]
-    except Exception:
-        return "<entity>"
+    return _raw_type_name(entity)
 
 
 def _selection_props(entity, units) -> list[dict]:
@@ -633,6 +653,13 @@ def _selection_props(entity, units) -> list[dict]:
                 g = entity.geometry
                 props.append({"key": "X", "value": _fmt_length(units, g.x)})
                 props.append({"key": "Y", "value": _fmt_length(units, g.y)})
+            except Exception:
+                pass
+            return props
+        if isinstance(entity, adsk.fusion.Profile):
+            try:
+                area_cm2 = entity.areaProperties().area
+                props.append({"key": "Area", "value": _fmt_area(units, area_cm2)})
             except Exception:
                 pass
             return props

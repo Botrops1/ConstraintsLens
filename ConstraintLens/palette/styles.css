@@ -122,6 +122,8 @@ body {
 main {
     flex: 1;
     overflow-y: auto;
+    scrollbar-width: thin;
+    scrollbar-color: var(--border) transparent;
 }
 
 main::-webkit-scrollbar { width: 4px; }
@@ -409,18 +411,28 @@ main::-webkit-scrollbar-thumb:hover { background: var(--fg-muted); }
 
 .btn-icon {
     background: none;
-    border: none;
+    border: 1px solid transparent;
     color: var(--fg-muted);
     font-size: 13px;
     line-height: 1;
     cursor: pointer;
-    padding: 0 2px;
+    padding: 1px 5px;
     border-radius: 2px;
-    opacity: 0.5;
+    opacity: 0.7;
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
 }
 
-.btn-icon:hover { opacity: 1; color: var(--fg); }
-.btn-icon.active { opacity: 1; color: var(--accent); }
+.btn-icon:hover { opacity: 1; color: var(--fg); border-color: var(--border); }
+
+/* Item #29: filled accent background when autozoom is active */
+.btn-icon.active {
+    opacity: 1;
+    color: #ffffff;
+    background: var(--accent);
+    border-color: var(--accent);
+}
 
 .section-label-footer {
     border-bottom: none;
@@ -441,7 +453,17 @@ main::-webkit-scrollbar-thumb:hover { background: var(--fg-muted); }
     align-items: center;
     gap: 3px;
     flex-shrink: 0;
+    /* Item #25: cap chip strip at ~3 chip rows then scroll */
+    max-height: 96px;
+    overflow-y: auto;
+    scrollbar-width: thin;
+    scrollbar-color: var(--border) transparent;
 }
+
+#entity-readout::-webkit-scrollbar { width: 4px; }
+#entity-readout::-webkit-scrollbar-track { background: transparent; }
+#entity-readout::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+#entity-readout::-webkit-scrollbar-thumb:hover { background: var(--fg-muted); }
 
 /* --- Invisible entity chips (#8) ------------------------------------ */
 
@@ -464,24 +486,35 @@ main::-webkit-scrollbar-thumb:hover { background: var(--fg-muted); }
 
 .hidden { display: none !important; }
 
+/* Item #28: cap "Properties of selected" at ~3 entity rows then scroll */
+#footer-section {
+    flex-shrink: 0;
+    max-height: 110px;
+    overflow-y: auto;
+    scrollbar-width: thin;
+    scrollbar-color: var(--border) transparent;
+}
+
+#footer-section::-webkit-scrollbar { width: 4px; }
+#footer-section::-webkit-scrollbar-track { background: transparent; }
+#footer-section::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+#footer-section::-webkit-scrollbar-thumb:hover { background: var(--fg-muted); }
+
 #selection-footer {
     flex-shrink: 0;
     padding: 2px 10px 4px;
     background: var(--bg-elev);
     font-size: 11px;
     color: var(--fg);
-    display: flex;
-    flex-wrap: wrap;
-    gap: 8px;
-    align-items: center;
-    max-height: 60px;
-    overflow-y: auto;
 }
 
+/* Item #28: each entity on its own horizontal row; wrap key/value pairs inline */
 .sel-item {
-    display: inline-flex;
+    display: flex;
+    flex-wrap: wrap;
     align-items: center;
     gap: 6px;
+    padding: 2px 0;
 }
 
 .sel-label {
