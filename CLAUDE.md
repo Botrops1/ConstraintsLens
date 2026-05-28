@@ -2,9 +2,9 @@
 
 ## Current Status
 
-**Working on:** GUI backlog — Batch A (#24 #25 #28 #29) + Batch D (#27) committed, pending PC test. Batch B (#22 #23) and Batch C (#26) next.
+**Working on:** GUI backlog — Batch A+D verified ✓. Next: Batch B (#22 #23) then Batch C (#26).
 **Version:** 1.3.2 (manifest + commit must always match).
-**Next step:** PC test eaf580e (scrollbars, height caps, zoom label, profile area). Then implement Batch B (filter clear button + canvas-click auto-filter) and Batch C (select-all checkbox).
+**Next step:** Implement Batch B — always-visible filter clear button (#23) + canvas-click auto-filter (#22). Then Batch C — select-all checkbox in section headers (#26).
 **Convention:** Every commit that bumps the version string must also update `ConstraintLens/ConstraintLens.manifest` `"version"` field so Fusion shows the correct version.
 **Blocked by:** Nothing.
 
@@ -161,14 +161,14 @@ tests/
 
 23. **Filter clear button — always-visible, left of filter bar** — Replace the hover-only × icon that appears on the right edge of the filter `<input>` with a standalone `✕` button placed to the left of the input, always visible. Makes the clear action obvious and easy to hit regardless of hover state.
 
-24. ~~**Thin scrollbar in "Properties of selected"**~~ — **DONE ✓** (pending PC test). `scrollbar-width: thin; scrollbar-color: var(--border) transparent` + webkit rules added to `#footer-section`.
+24. ~~**Thin scrollbar in "Properties of selected"**~~ — **DONE ✓ PC verified.** `scrollbar-width: thin; scrollbar-color: var(--border) transparent` + webkit rules on `#footer-section`. Scrollbar appears at ~4.5 rows.
 
-25. ~~**"Selected" chip strip — max 3 rows, then scroll**~~ — **DONE ✓** (pending PC test). `max-height: 96px; overflow-y: auto` + thin scrollbar added to `#entity-readout`.
+25. ~~**"Selected" chip strip — max 3 rows, then scroll**~~ — **DONE ✓ PC verified.** `max-height: 96px; overflow-y: auto` + thin scrollbar on `#entity-readout`. Scrollbar appears at ~4.5 chip rows.
 
 26. **"Select all" checkbox in section headers** — Add a checkbox to the left of the chevron on "Geometric Constraints", "Dimensions", and "Patterns" section headers. Checking it adds all currently-filtered deletable rows in that section to `state.selected`; unchecking removes them. Updates the bulk-delete button count. (Endpoint joins section excluded — non-deletable.)
 
-27. ~~**Profile handling in "Properties of selected"**~~ — **DONE ✓** (pending PC test). `_selection_props()` now returns Area for `adsk.fusion.Profile` via `entity.areaProperties().area`; label shows loop count (`"Profile (2 loops)"`). `_format_selection_entity()` suppresses any item where props is empty and label is the raw type name — prevents empty rows for unsupported entity types.
+27. ~~**Profile handling in "Properties of selected"**~~ — **DONE ✓ PC verified.** `_selection_props()` returns Area for `adsk.fusion.Profile` via `entity.areaProperties().area`; label shows loop count (`"Profile (2 loops)"`). `_format_selection_entity()` suppresses items where props is empty and label is the raw type name.
 
-28. ~~**"Properties of selected" — one entity per row, max 3 rows, then scroll**~~ — **DONE ✓** (pending PC test). `.sel-item` changed to `display: flex` (one entity per row); `#footer-section` capped at `max-height: 110px; overflow-y: auto` with thin scrollbar.
+28. ~~**"Properties of selected" — one entity per row, max 3 rows, then scroll**~~ — **DONE ✓ PC verified.** `.sel-item` is `display: flex` (one entity per row); `#footer-section` capped at `max-height: 110px; overflow-y: auto` with thin scrollbar. Scrollbar appears at ~4.5 rows.
 
-29. ~~**Zoom button — visible label + clearer active state**~~ — **DONE ✓** (pending PC test). Button text changed to `⌕ Zoom` in index.html. Active state now uses `background: var(--accent); color: #ffffff` fill instead of opacity-only toggle.
+29. ~~**Zoom button — visible label + clearer active state**~~ — **DONE ✓ PC verified.** Button shows `⌕ Zoom` label (visible only when "Selected:" section is shown). Active state uses `background: var(--accent); color: #ffffff` fill.
