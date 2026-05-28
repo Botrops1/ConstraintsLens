@@ -3,7 +3,7 @@
 ## Current Status
 
 **Working on:** Maintenance / community issues.
-**Version:** 1.3.2 (manifest + commit must always match).
+**Version:** 1.5.0 (manifest + commit must always match).
 **Next step:** Monitor for new issues. v1.3.x GUI backlog (#22–#29) fully implemented and PC verified.
 **Convention:** Every commit that bumps the version string must also update `ConstraintLens/ConstraintLens.manifest` `"version"` field so Fusion shows the correct version.
 **Blocked by:** Nothing.
