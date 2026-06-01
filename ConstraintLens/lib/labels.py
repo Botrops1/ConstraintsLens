@@ -31,7 +31,42 @@ class EntityLabeler:
         # bag; guard the lookup so labeler construction never fails.
         cps = getattr(curves, "sketchControlPointSplines", None)
         if cps is not None:
-            self._index(cps, "Spline", "SketchControlPointSpline")
+            self._index_control_point_splines(cps)
+
+    def _index_control_point_splines(self, coll) -> None:
+        """Number control-point splines and their guide (control-polygon)
+        lines so the latter filter as 'Spline N Guide M' instead of an
+        anonymous 'SketchLine'. Best-effort: any failure is skipped."""
+        try:
+            count = coll.count
+        except Exception:
+            return
+        for i in range(count):
+            try:
+                spline = coll.item(i)
+            except Exception:
+                continue
+            tok = _safe_token(spline)
+            if tok:
+                self._tokens[tok] = f"Spline {i + 1}"
+                self._kinds[tok] = "SketchControlPointSpline"
+            guides = getattr(spline, "controlPointLines", None)
+            if guides is None:
+                continue
+            try:
+                gcount = guides.count
+            except Exception:
+                continue
+            for j in range(gcount):
+                try:
+                    line = guides.item(j)
+                except Exception:
+                    continue
+                gtok = _safe_token(line)
+                if gtok:
+                    self._tokens[gtok] = f"Spline {i + 1} Guide {j + 1}"
+                    # Keep kind as SketchLine so icon lookup still resolves.
+                    self._kinds[gtok] = "SketchLine"
 
     def _index(self, coll, name: str, kind: str) -> None:
         try:

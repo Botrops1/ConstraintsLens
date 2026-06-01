@@ -6,7 +6,7 @@
     "description": {
         "": "Docked panel listing every sketch constraint in the active sketch — click to select, delete, and diagnose."
     },
-    "version": "1.5.2",
+    "version": "1.5.3",
     "runOnStartup": false,
     "supportedOS": "windows|mac",
     "editEnabled": true
