@@ -8,7 +8,7 @@ import traceback
 import adsk.core
 import adsk.fusion
 
-from . import actions, events, labels, messaging, scanner, selection, tokens
+from . import actions, events, labels, messaging, scanner, selection, settings, tokens
 
 
 # Command and palette ids — must be unique across all add-ins.
@@ -35,6 +35,11 @@ _swallow_selection_until: float = 0.0
 
 # Set by JS on paletteReady and whenever the toggle is clicked.
 _auto_zoom: bool = False
+
+# Tracks whether the last published state was "in a sketch", so the palette
+# is shown/hidden only on the transition rather than on every command (#9).
+# None until the first publish so the initial state is established cleanly.
+_last_in_sketch: bool | None = None
 
 
 # --- Lifecycle entry points ---------------------------------------------
@@ -338,6 +343,18 @@ def _show_palette() -> None:
     # Fusion's palette system arms the handle without a max-size constraint.
     try:
         _palette.setMinimumSize(200, 150)
+    except Exception:
+        pass
+
+    # First launch ever: dock to the right so the palette has a sensible home.
+    # On every later launch we leave dockingState untouched, deferring to
+    # Fusion's native dock memory (per the v1.2.1 design intent). (#9)
+    try:
+        cfg = settings.load()
+        if not cfg.get("first_run_done"):
+            _palette.dockingState = adsk.core.PaletteDockingStates.PaletteDockStateRight
+            cfg["first_run_done"] = True
+            settings.save(cfg)
     except Exception:
         pass
 
@@ -909,10 +926,31 @@ def _fmt_volume(units, value_cm3) -> str:
     return f"{value_cm3:.4g} cm^3"
 
 
+def _sync_palette_visibility(in_sketch: bool) -> None:
+    """Show the palette on entering a sketch, hide it on leaving — but only on
+    the transition, so we don't write isVisible on every command (#9)."""
+    global _last_in_sketch
+    if _last_in_sketch is None:
+        # First publish: record state without forcing visibility, so we don't
+        # fight the user opening the palette via the toolbar button.
+        _last_in_sketch = in_sketch
+        return
+    if in_sketch == _last_in_sketch:
+        return
+    _last_in_sketch = in_sketch
+    if _palette is None:
+        return
+    try:
+        _palette.isVisible = in_sketch
+    except Exception:
+        pass
+
+
 def _publish_active(app: adsk.core.Application) -> None:
     if _palette is None:
         return
     sketch = scanner.active_sketch(app)
+    _sync_palette_visibility(sketch is not None)
     if sketch is None:
         messaging.send(_palette, messaging.PY_ACTION_NO_ACTIVE_SKETCH, {
             "reason": "Open a sketch for edit to see its constraints.",

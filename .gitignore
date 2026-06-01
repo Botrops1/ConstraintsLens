@@ -18,3 +18,6 @@ __pycache__/
 # Fusion native icons — copied at add-in startup from the Fusion install
 # (proprietary Autodesk assets, not committed)
 ConstraintLens/palette/icons/
+
+# Runtime add-in state (first-run dock flag, etc.) — written per install
+ConstraintLens/settings.json
