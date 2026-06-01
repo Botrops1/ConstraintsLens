@@ -558,6 +558,17 @@ main::-webkit-scrollbar-thumb:hover { background: var(--fg-muted); }
     color: var(--fg);
 }
 
+/* Derived relationship measurement (issue #8) — distinct from entity rows. */
+.sel-item-measure {
+    border-left: 3px solid var(--accent);
+    padding-left: 6px;
+    margin-top: 2px;
+}
+
+.sel-item-measure .sel-label {
+    color: var(--accent);
+}
+
 .sel-sep {
     color: var(--fg-muted);
     opacity: 0.5;

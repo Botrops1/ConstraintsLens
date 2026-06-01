@@ -268,7 +268,8 @@
             ).join("");
             const labelHTML = `<span class="sel-label">${escape(item.label || "")}</span>`;
             const sep = props ? `<span class="sel-sep">·</span>` : "";
-            return `<div class="sel-item">${labelHTML}${sep}${props}</div>`;
+            const cls = item.kind === "measurement" ? "sel-item sel-item-measure" : "sel-item";
+            return `<div class="${cls}">${labelHTML}${sep}${props}</div>`;
         }).join("");
         els.footerSection.className = "";
         els.selectionFooter.innerHTML = html;

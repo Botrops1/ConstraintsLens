@@ -557,6 +557,7 @@ def _build_selection_info(app: adsk.core.Application) -> dict:
         labeler = None
 
     items: list[dict] = []
+    entities: list = []
     try:
         sel = ui.activeSelections
         for i in range(sel.count):
@@ -566,9 +567,17 @@ def _build_selection_info(app: adsk.core.Application) -> dict:
                 continue
             if ent is None:
                 continue
+            entities.append(ent)
             item = _format_selection_entity(ent, units, labeler)
             if item is not None:
                 items.append(item)
+    except Exception:
+        pass
+    # Relationship measurement across the whole selection (issue #8).
+    try:
+        measure = _pairwise_measurement(entities, units)
+        if measure is not None:
+            items.append(measure)
     except Exception:
         pass
     return {"items": items}
@@ -701,6 +710,152 @@ def _selection_props(entity, units) -> list[dict]:
     except Exception:
         pass
     return props
+
+
+def _pt_xyz(geom) -> tuple:
+    """Return (x, y, z) from a Point3D, defaulting z to 0.0."""
+    return (geom.x, geom.y, getattr(geom, "z", 0.0))
+
+
+def _dist3(a: tuple, b: tuple) -> float:
+    import math
+    return math.sqrt((a[0] - b[0]) ** 2 + (a[1] - b[1]) ** 2 + (a[2] - b[2]) ** 2)
+
+
+def _line_endpoints(line) -> tuple:
+    """Return (start_xyz, end_xyz) for a SketchLine."""
+    s = _pt_xyz(line.startSketchPoint.geometry)
+    e = _pt_xyz(line.endSketchPoint.geometry)
+    return s, e
+
+
+def _line_dir(line) -> tuple:
+    s, e = _line_endpoints(line)
+    return (e[0] - s[0], e[1] - s[1], e[2] - s[2])
+
+
+def _vlen(v: tuple) -> float:
+    import math
+    return math.sqrt(v[0] ** 2 + v[1] ** 2 + v[2] ** 2)
+
+
+def _angle_between_lines(l1, l2) -> float:
+    """Acute angle (radians) between two sketch lines' directions."""
+    import math
+    d1, d2 = _line_dir(l1), _line_dir(l2)
+    n1, n2 = _vlen(d1), _vlen(d2)
+    if n1 == 0 or n2 == 0:
+        raise ValueError("degenerate line")
+    dot = (d1[0] * d2[0] + d1[1] * d2[1] + d1[2] * d2[2]) / (n1 * n2)
+    dot = max(-1.0, min(1.0, dot))
+    ang = math.acos(dot)
+    # Collapse to the acute representative — "angle between lines" is direction-agnostic.
+    return ang if ang <= math.pi / 2 else math.pi - ang
+
+
+def _point_to_segment_dist(p: tuple, a: tuple, b: tuple) -> float:
+    """Minimal distance from point p to segment a-b (clamped to endpoints)."""
+    ab = (b[0] - a[0], b[1] - a[1], b[2] - a[2])
+    ap = (p[0] - a[0], p[1] - a[1], p[2] - a[2])
+    ab2 = ab[0] ** 2 + ab[1] ** 2 + ab[2] ** 2
+    if ab2 == 0:
+        return _dist3(p, a)
+    t = (ap[0] * ab[0] + ap[1] * ab[1] + ap[2] * ab[2]) / ab2
+    t = max(0.0, min(1.0, t))
+    proj = (a[0] + t * ab[0], a[1] + t * ab[1], a[2] + t * ab[2])
+    return _dist3(p, proj)
+
+
+def _circle_center_radius(c) -> tuple:
+    """Return (center_xyz, radius) for a SketchCircle/SketchArc."""
+    center = _pt_xyz(c.centerSketchPoint.geometry)
+    return center, c.radius
+
+
+def _pairwise_measurement(entities: list, units) -> dict | None:
+    """Relationship measurement across the selection (issue #8). Best-effort.
+
+    Returns a footer item {"label", "props", "kind": "measurement"} or None.
+    """
+    import math
+
+    def point(e):
+        return isinstance(e, adsk.fusion.SketchPoint)
+
+    def line(e):
+        return isinstance(e, adsk.fusion.SketchLine)
+
+    def circle(e):
+        return isinstance(e, adsk.fusion.SketchCircle)
+
+    def arc(e):
+        return isinstance(e, adsk.fusion.SketchArc)
+
+    try:
+        n = len(entities)
+        if n == 2:
+            a, b = entities[0], entities[1]
+            # 2 points -> distance + deltas
+            if point(a) and point(b):
+                pa, pb = _pt_xyz(a.geometry), _pt_xyz(b.geometry)
+                return {"kind": "measurement", "label": "Measurement", "props": [
+                    {"key": "Distance", "value": _fmt_length(units, _dist3(pa, pb))},
+                    {"key": "ΔX", "value": _fmt_length(units, abs(pb[0] - pa[0]))},
+                    {"key": "ΔY", "value": _fmt_length(units, abs(pb[1] - pa[1]))},
+                ]}
+            # 2 lines -> angle (+ gap when parallel)
+            if line(a) and line(b):
+                ang = _angle_between_lines(a, b)
+                props = [{"key": "Angle", "value": _fmt_angle(units, ang)}]
+                if ang < math.radians(0.5):  # treat as parallel
+                    sa, _ = _line_endpoints(a)
+                    sb, eb = _line_endpoints(b)
+                    props.append({"key": "Gap", "value": _fmt_length(units, _point_to_segment_dist(sa, sb, eb))})
+                return {"kind": "measurement", "label": "Measurement", "props": props}
+            # point + line -> minimal distance to the segment
+            if point(a) and line(b) or line(a) and point(b):
+                pt = a if point(a) else b
+                ln = b if point(a) else a
+                p = _pt_xyz(pt.geometry)
+                s, e = _line_endpoints(ln)
+                return {"kind": "measurement", "label": "Measurement", "props": [
+                    {"key": "Distance", "value": _fmt_length(units, _point_to_segment_dist(p, s, e))},
+                ]}
+            # 2 circles -> concentric? offset (|r1-r2|) : center-to-center
+            if circle(a) and circle(b):
+                ca, ra = _circle_center_radius(a)
+                cb, rb = _circle_center_radius(b)
+                d = _dist3(ca, cb)
+                if d < 1e-5:  # concentric
+                    return {"kind": "measurement", "label": "Measurement", "props": [
+                        {"key": "Offset", "value": _fmt_length(units, abs(ra - rb))},
+                    ]}
+                return {"kind": "measurement", "label": "Measurement", "props": [
+                    {"key": "Distance", "value": _fmt_length(units, d)},
+                ]}
+            # point + circle/arc -> distance to center and to edge
+            if (point(a) and (circle(b) or arc(b))) or (point(b) and (circle(a) or arc(a))):
+                pt = a if point(a) else b
+                cc = b if point(a) else a
+                p = _pt_xyz(pt.geometry)
+                center, r = _circle_center_radius(cc)
+                to_center = _dist3(p, center)
+                return {"kind": "measurement", "label": "Measurement", "props": [
+                    {"key": "To center", "value": _fmt_length(units, to_center)},
+                    {"key": "To edge", "value": _fmt_length(units, abs(to_center - r))},
+                ]}
+            return None
+        # >2 entities, all lines -> total length
+        if n > 2 and all(line(e) for e in entities):
+            total = 0.0
+            for e in entities:
+                total += e.length
+            return {"kind": "measurement", "label": "Measurement", "props": [
+                {"key": "Total length", "value": _fmt_length(units, total)},
+            ]}
+    except Exception:
+        return None
+    return None
 
 
 def _fmt_length(units, value_cm) -> str:
