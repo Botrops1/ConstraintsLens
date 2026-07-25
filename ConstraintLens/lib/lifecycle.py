@@ -37,6 +37,24 @@ _swallow_selection_until: float = 0.0
 # Set by JS on paletteReady and whenever the toggle is clicked.
 _auto_zoom: bool = False
 
+# --- Auto-hide on sketch exit (issue #9) --------------------------------
+#
+# Opt-in, set by JS the same way as _auto_zoom. Off by default so the palette
+# keeps its long-standing behaviour unless asked.
+_auto_hide: bool = False
+
+# True only while the palette is hidden *because we hid it*. Without this the
+# palette would be forced open again on the next sketch for someone who had
+# deliberately closed it with the X button: closing manually leaves this False,
+# so auto-show skips them. _show_palette() clears it, because clicking the
+# toolbar button is an explicit "I want this open" that supersedes the flag.
+_auto_hidden: bool = False
+
+# Reentrancy guard. _apply_palette_height() calls adsk.doEvents(), which can
+# dispatch a queued poll tick mid-sequence — and that tick must not toggle
+# isVisible while a height change is using isVisible and dockingState itself.
+_applying_height: bool = False
+
 # --- Docked height control (v1.6.0) -------------------------------------
 #
 # Established empirically by tests/probe_dock_height{,2} on Fusion 2704.1.36.
@@ -352,9 +370,13 @@ class _CommandCreatedHandler(adsk.core.CommandCreatedEventHandler):
 
 
 def _show_palette() -> None:
-    global _palette
+    global _palette, _auto_hidden
     app = adsk.core.Application.get()
     ui = app.userInterface
+
+    # Clicking the toolbar button is an explicit "I want this open", which
+    # supersedes any auto-hide bookkeeping (issue #9).
+    _auto_hidden = False
 
     if _palette is not None and _is_palette_alive(_palette):
         _palette.isVisible = True
@@ -477,9 +499,22 @@ def _apply_palette_height(target_px: int) -> int:
     success even when docking prevented the resize, and every setMaximumSize
     call the probes made returned False whether or not it took effect.
     """
-    global _last_apply_note
+    global _last_apply_note, _applying_height
     if _palette is None or not _is_palette_alive(_palette):
         return 0
+
+    # Tiers 2 and 3 drive isVisible and dockingState, and call adsk.doEvents()
+    # between steps — which can dispatch a queued poll tick. Block auto-hide
+    # for the duration so it cannot fight us over isVisible mid-sequence.
+    _applying_height = True
+    try:
+        return _apply_palette_height_inner(target_px)
+    finally:
+        _applying_height = False
+
+
+def _apply_palette_height_inner(target_px: int) -> int:
+    global _last_apply_note
 
     target = max(_PALETTE_MIN_H, min(int(target_px), _PALETTE_MAX_SAFE_PX))
     width = _palette_width()
@@ -614,13 +649,14 @@ def _handle_set_palette_height(payload: dict) -> None:
 
 
 def _on_palette_message(action: str, raw: str) -> None:
-    global _auto_zoom
+    global _auto_zoom, _auto_hide, _auto_hidden
     app = adsk.core.Application.get()
     payload = messaging.parse_incoming(raw)
 
     if action == messaging.ACTION_PALETTE_READY or action == messaging.ACTION_REQUEST_REFRESH:
         if action == messaging.ACTION_PALETTE_READY:
             _auto_zoom = bool(payload.get("autoZoom", False))
+            _auto_hide = bool(payload.get("autoHide", False))
         _publish_active(app)
         _push_selection_info(app)
         _push_selection_tokens(app)
@@ -668,6 +704,14 @@ def _on_palette_message(action: str, raw: str) -> None:
         _auto_zoom = bool(payload.get("enabled", False))
         return
 
+    if action == messaging.ACTION_SET_AUTO_HIDE:
+        _auto_hide = bool(payload.get("enabled", False))
+        if not _auto_hide:
+            # Turning it off must not leave a stale claim that we hid it.
+            _auto_hidden = False
+        _apply_auto_hide(app)
+        return
+
     if action == messaging.ACTION_SET_PALETTE_HEIGHT:
         _handle_set_palette_height(payload)
         return
@@ -683,6 +727,7 @@ def _on_palette_closed() -> None:
 
 def _on_change() -> None:
     app = adsk.core.Application.get()
+    _apply_auto_hide(app)
     _publish_active(app)
     # There is no palette dock/resize event in the API, so commandTerminated is
     # the cheapest existing hook for noticing that the user has dragged the
@@ -784,10 +829,51 @@ def _stop_sketch_poll() -> None:
 
 def _on_poll_tick() -> None:
     try:
-        _republish_if_sketch_changed(adsk.core.Application.get())
+        app = adsk.core.Application.get()
+        # Before the rescan: _republish_if_sketch_changed() bails out on a
+        # hidden palette, so auto-show has to get its chance first.
+        _apply_auto_hide(app)
+        _republish_if_sketch_changed(app)
     finally:
         # In a finally so a raising tick cannot wedge the poll permanently.
         _poll_in_flight.clear()
+
+
+def _apply_auto_hide(app: adsk.core.Application) -> None:
+    """Hide the palette when no sketch is being edited, and bring it back on
+    the next sketch — but only if it was us who hid it (issue #9).
+
+    Fusion has no minimize state for a palette (isVisible, dockingState and
+    size are the whole surface), so "collapsed" is not available; this is a
+    plain hide/show. Dock position is deliberately left alone — forcing it was
+    tried in v1.2.0 and reverted in v1.2.1 as redundant and confusing, since
+    Fusion already remembers the user's choice.
+    """
+    global _auto_hidden
+    if not _auto_hide or _palette is None or _applying_height:
+        return
+    if not _is_palette_alive(_palette):
+        return
+    try:
+        in_sketch = scanner.active_sketch(app) is not None
+    except Exception:
+        return
+
+    try:
+        if not in_sketch:
+            if _palette.isVisible:
+                _palette.isVisible = False
+                _auto_hidden = True
+        elif _auto_hidden:
+            _palette.isVisible = True
+            _auto_hidden = False
+            # Data went stale while hidden: messaging.send() drops everything
+            # for an invisible palette (landmine M-8).
+            _publish_active(app)
+            _push_selection_info(app)
+            _push_selection_tokens(app)
+    except Exception:
+        pass
 
 
 def _sketch_counts(sketch) -> tuple[int, int]:

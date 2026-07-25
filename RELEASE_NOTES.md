@@ -6,6 +6,23 @@
 
 **Adjustable palette height while docked, live row counts while a tool is active, and a denser row layout.**
 
+### Auto-hide when leaving a sketch (#9)
+
+New **📌** toggle in the toolbar. Pinned is the default and keeps today's
+behaviour; switch it to **📍** and the palette hides when you leave a sketch and
+comes back on the next one you edit.
+
+Closing the palette yourself with the ✕ is respected — auto-hide only reopens a
+palette that auto-hide itself hid, so a deliberate close is not undone on the
+next sketch.
+
+Two parts of the request could not be done as asked. Fusion's `Palette` exposes
+only `isVisible`, `dockingState` and size — there is **no minimize or collapse
+state** — so this hides and shows rather than collapsing to a title bar. And the
+dock position is deliberately left alone: forcing it was tried in v1.2.0 and
+reverted in v1.2.1 as redundant and confusing, because Fusion already remembers
+the user's choice across sessions.
+
 ### Denser rows — roughly 2.5× more visible at the same height
 
 A constraint row cost about 72 px because the same information appeared three

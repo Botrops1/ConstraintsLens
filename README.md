@@ -91,6 +91,11 @@ One toggle button sits on the right end of the name bar:
 | **Delete N** | Deletes all checked rows at once after a confirmation prompt (visible only when rows are checked). |
 | **Show u/c** | Calls Fusion's built-in Show Underconstrained command. Under-constrained entities are surfaced as clickable chips in the "Selected:" strip. Requires an active sketch edit context. |
 | **Refresh** | Manually re-scans the active sketch. Usually not needed — the palette refreshes automatically after every sketch edit. |
+| **📌 / 📍** (pin) | Controls what happens when you leave a sketch. **📌 Pinned (default)** — the palette stays open. **📍 Auto-hide** — it hides on sketch exit and returns on the next sketch you edit. Preference is saved in `localStorage`. |
+
+> **Auto-hide and manual closing don't fight each other.** If you close the palette yourself with the **✕**, auto-hide will not reopen it on the next sketch — only a palette that auto-hide itself hid gets brought back. Click **Constraint Lens** in the Sketch toolbar to reopen it whenever you want.
+>
+> Fusion provides no minimize state for a palette, so auto-hide hides and shows rather than collapsing to a title bar, and it never changes your dock position.
 
 ### Selected section (canvas → palette, automatic)
 

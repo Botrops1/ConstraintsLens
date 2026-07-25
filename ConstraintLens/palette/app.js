@@ -18,6 +18,7 @@
         openEditDialog: "openEditDialog",
         editParameter: "editParameter",
         setAutoZoom: "setAutoZoom",
+        setAutoHide: "setAutoHide",
         setPaletteHeight: "setPaletteHeight",
     };
 
@@ -159,6 +160,7 @@
         selectedLabel: document.getElementById("selected-label"),
         selectedLabelText: document.getElementById("selected-label-text"),
         autozoomToggle: document.getElementById("autozoom-toggle"),
+        autohideToggle: document.getElementById("autohide-toggle"),
         filterClear: document.getElementById("filter-clear"),
         themeToggle: document.getElementById("theme-toggle"),
         selectionFooter: document.getElementById("selection-footer"),
@@ -992,6 +994,35 @@
     // that test ran against a file the sync client had rolled back, so the JS
     // was not present — but there is no reason to revisit it.
 
+    // --- Auto-hide on sketch exit (issue #9) -----------------------------
+    //
+    // Pin metaphor, and note the sense is inverted relative to the flag:
+    // pinned (default, .active) means "stay open", so autoHide is OFF. Default
+    // is pinned so existing behaviour is unchanged unless the user opts in.
+    //
+    // Fusion has no minimize state for a palette, so this hides and shows
+    // rather than collapsing, and it never touches dock position.
+
+    const autohidePresent = !!els.autohideToggle;
+    let autoHideOn = localStorage.getItem("cl-autohide") === "true";
+
+    function updateAutoHideButton() {
+        if (!autohidePresent) return;
+        // .active marks the pinned (non-auto-hiding) state.
+        els.autohideToggle.classList.toggle("active", !autoHideOn);
+        els.autohideToggle.textContent = autoHideOn ? "📍" : "📌";
+        els.autohideToggle.title = autoHideOn
+            ? "Auto-hide on — palette hides when you leave a sketch, returns on the next one. Click to pin it open."
+            : "Pinned — palette stays open when you leave a sketch. Click to auto-hide instead.";
+    }
+
+    if (autohidePresent) els.autohideToggle.addEventListener("click", () => {
+        autoHideOn = !autoHideOn;
+        localStorage.setItem("cl-autohide", String(autoHideOn));
+        updateAutoHideButton();
+        send(JS_TO_PY.setAutoHide, { enabled: autoHideOn });
+    });
+
     // --- Theme toggle (#5) -----------------------------------------------
 
     function updateThemeButton(theme) {
@@ -1013,7 +1044,8 @@
         updateThemeButton(savedTheme);
         updateAutoZoomButton();
         updateHeightButton();
+        updateAutoHideButton();
         state.loaded = true;
-        _sendWhenReady(JS_TO_PY.paletteReady, { autoZoom: autoZoomOn });
+        _sendWhenReady(JS_TO_PY.paletteReady, { autoZoom: autoZoomOn, autoHide: autoHideOn });
     });
 })();
