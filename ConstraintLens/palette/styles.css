@@ -276,7 +276,9 @@ main::-webkit-scrollbar-thumb:hover { background: var(--fg-muted); }
 
 .toast {
     position: fixed;
-    bottom: 12px;
+    /* Clears the 11 px #resize-grip strip, so a toast never covers the drag
+       target while it is on screen. */
+    bottom: 24px;
     left: 12px;
     right: 12px;
     padding: 8px 12px;
@@ -516,6 +518,44 @@ main::-webkit-scrollbar-thumb:hover { background: var(--fg-muted); }
     color: var(--error);
     border-radius: 3px;
     vertical-align: middle;
+}
+
+/* --- Docked height grip (v1.6.0) ------------------------------------ */
+/* Last child of the body flex column, below #footer-section. Fusion gives a
+   docked palette no bottom drag handle unless a maximum size is registered,
+   so this strip stands in for it. The height is applied on pointer release,
+   not per frame: each apply may round-trip the palette through the floating
+   state, which is the only point at which the dock layout accepts a cap. */
+
+#resize-grip {
+    flex-shrink: 0;
+    height: 11px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-top: 1px solid var(--border);
+    background: var(--bg);
+    cursor: ns-resize;
+    user-select: none;
+    touch-action: none;
+}
+
+#resize-grip::before {
+    content: "";
+    width: 34px;
+    height: 3px;
+    border-radius: 2px;
+    background: var(--border);
+}
+
+#resize-grip:hover::before { background: var(--accent); }
+#resize-grip.dragging::before { display: none; }
+#resize-grip.dragging { background: var(--bg-elev); }
+
+#resize-grip-readout {
+    font-size: 10px;
+    line-height: 1;
+    color: var(--accent);
 }
 
 /* --- Selection-info footer (issue #3 follow-up) --------------------- */

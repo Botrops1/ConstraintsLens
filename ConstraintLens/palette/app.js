@@ -18,6 +18,7 @@
         openEditDialog: "openEditDialog",
         editParameter: "editParameter",
         setAutoZoom: "setAutoZoom",
+        setPaletteHeight: "setPaletteHeight",
     };
 
     const PY_TO_JS = {
@@ -27,6 +28,7 @@
         actionResult: "actionResult",
         selectionResult: "selectionResult",
         selectionInfo: "selectionInfo",
+        dockInfo: "dockInfo",
     };
 
     // --- SVG icons, one per constraint type. --------------------------------
@@ -161,6 +163,9 @@
         themeToggle: document.getElementById("theme-toggle"),
         selectionFooter: document.getElementById("selection-footer"),
         footerSection: document.getElementById("footer-section"),
+        heightCycle: document.getElementById("height-cycle"),
+        resizeGrip: document.getElementById("resize-grip"),
+        resizeGripReadout: document.getElementById("resize-grip-readout"),
     };
 
     // --- Outgoing messages -----------------------------------------------
@@ -217,6 +222,7 @@
                 case PY_TO_JS.actionResult: onActionResult(payload); break;
                 case PY_TO_JS.selectionResult: onSelectionResult(payload); break;
                 case PY_TO_JS.selectionInfo: onSelectionInfo(payload); break;
+                case PY_TO_JS.dockInfo: onDockInfo(payload); break;
                 default: console.log("unknown action", action, payload);
             }
             return "OK";
@@ -834,6 +840,146 @@
         send(JS_TO_PY.setAutoZoom, { enabled: autoZoomOn });
     });
 
+    // --- Docked height: cycle button + drag grip (v1.6.0) ----------------
+    //
+    // Fusion gives a docked custom palette no bottom drag handle unless a
+    // maximum size has been registered, and a docked palette refuses size
+    // changes outright — Python has to round-trip it through the floating
+    // state to apply one. So both controls send a target height and let
+    // Python do the work; neither resizes anything client-side.
+
+    const HEIGHT_PRESETS = [
+        { label: "50%", fraction: 0.50 },
+        { label: "75%", fraction: 0.75 },
+        { label: "Full", fraction: 1 },
+    ];
+
+    const dock = { docked: false, heightPx: 0, columnPx: 0, minPx: 150, note: "" };
+
+    let presetIndex = (function () {
+        const saved = parseInt(localStorage.getItem("cl-height-preset"), 10);
+        return Number.isInteger(saved) && saved >= 0 && saved < HEIGHT_PRESETS.length
+            ? saved
+            : HEIGHT_PRESETS.length - 1;   // default: full height
+    })();
+    let presetRestored = false;
+
+    // Falls back to the screen height until Python has reported a real
+    // measurement, which only happens once the palette is docked.
+    function heightReference() {
+        return dock.columnPx || window.screen.availHeight || 900;
+    }
+
+    // Guard against a partially-copied deploy: if index.html is still the old
+    // one, these elements are absent and an unguarded addEventListener below
+    // would throw at load time and take the whole palette script down with it.
+    const heightControlsPresent = !!(els.heightCycle && els.resizeGrip);
+
+    function updateHeightButton() {
+        if (!heightControlsPresent) return;
+        els.heightCycle.textContent = `⇕ ${HEIGHT_PRESETS[presetIndex].label}`;
+        const where = dock.docked
+            ? `docked, column ${dock.columnPx || "?"} px`
+            : "floating";
+        els.heightCycle.title =
+            `Docked height — click to cycle 50% / 75% / full\n`
+            + `now ${dock.heightPx || "?"} px (${where})`
+            + (dock.note ? `\napplied via ${dock.note}` : "");
+    }
+
+    function applyPreset(index) {
+        const preset = HEIGHT_PRESETS[index];
+        if (preset.fraction >= 1) {
+            // Python asks for its safe ceiling, which the dock layout clamps
+            // to the column — that also re-measures the column after the
+            // Fusion window has been resized.
+            send(JS_TO_PY.setPaletteHeight, { full: true });
+        } else {
+            send(JS_TO_PY.setPaletteHeight, {
+                heightPx: Math.round(heightReference() * preset.fraction),
+            });
+        }
+    }
+
+    if (heightControlsPresent) els.heightCycle.addEventListener("click", () => {
+        presetIndex = (presetIndex + 1) % HEIGHT_PRESETS.length;
+        localStorage.setItem("cl-height-preset", String(presetIndex));
+        updateHeightButton();
+        applyPreset(presetIndex);
+    });
+
+    function onDockInfo(payload) {
+        dock.docked = !!payload.docked;
+        dock.heightPx = payload.heightPx || 0;
+        dock.columnPx = payload.columnPx || 0;
+        dock.minPx = payload.minPx || 150;
+        dock.note = payload.note || "";
+        updateHeightButton();
+
+        // Fusion recreates the palette each session, so a cap never survives a
+        // restart. Re-apply the remembered preset once, the first time we hear
+        // that the palette is docked and the column has been measured.
+        if (!presetRestored && dock.docked && dock.columnPx) {
+            presetRestored = true;
+            if (HEIGHT_PRESETS[presetIndex].fraction < 1) applyPreset(presetIndex);
+        }
+    }
+
+    // Drag grip. The height is applied on release rather than per frame,
+    // because each apply may bounce the palette through the floating state.
+    // During the drag the grip shows the pending value instead.
+    (function () {
+        if (!heightControlsPresent) return;
+        let dragging = false;
+        let startY = 0;
+        let startHeight = 0;
+        let pending = 0;
+
+        function clamp(px) {
+            const max = dock.columnPx || 4000;
+            return Math.max(dock.minPx, Math.min(Math.round(px), max));
+        }
+
+        els.resizeGrip.addEventListener("pointerdown", (e) => {
+            dragging = true;
+            startY = e.clientY;
+            startHeight = dock.heightPx || window.innerHeight;
+            pending = startHeight;
+            els.resizeGrip.classList.add("dragging");
+            els.resizeGrip.setPointerCapture(e.pointerId);
+            e.preventDefault();
+        });
+
+        els.resizeGrip.addEventListener("pointermove", (e) => {
+            if (!dragging) return;
+            pending = clamp(startHeight + (e.clientY - startY));
+            els.resizeGripReadout.textContent = `${pending} px`;
+        });
+
+        function finish(e) {
+            if (!dragging) return;
+            dragging = false;
+            els.resizeGrip.classList.remove("dragging");
+            els.resizeGripReadout.textContent = "";
+            try { els.resizeGrip.releasePointerCapture(e.pointerId); } catch (_) {}
+            if (pending && Math.abs(pending - startHeight) > 2) {
+                send(JS_TO_PY.setPaletteHeight, { heightPx: pending });
+            }
+        }
+
+        els.resizeGrip.addEventListener("pointerup", finish);
+        els.resizeGrip.addEventListener("pointercancel", finish);
+    })();
+
+    // Note: sketch-change polling deliberately does NOT live here. Fusion fires
+    // no event while a resident tool edits the sketch, so a poll is required,
+    // but it runs on a Python worker thread (_start_sketch_poll in
+    // lifecycle.py) instead of a setInterval in this view. The worker does not
+    // depend on the web view being loaded, visible, or focused, and it is
+    // verified working. A setInterval here was never actually shown to fail —
+    // that test ran against a file the sync client had rolled back, so the JS
+    // was not present — but there is no reason to revisit it.
+
     // --- Theme toggle (#5) -----------------------------------------------
 
     function updateThemeButton(theme) {
@@ -854,6 +1000,7 @@
         document.documentElement.setAttribute("data-theme", savedTheme);
         updateThemeButton(savedTheme);
         updateAutoZoomButton();
+        updateHeightButton();
         state.loaded = true;
         _sendWhenReady(JS_TO_PY.paletteReady, { autoZoom: autoZoomOn });
     });

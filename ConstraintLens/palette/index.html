@@ -8,6 +8,8 @@
 <body>
     <div class="sketch-name-bar">
         <div class="status" id="status">Loading…</div>
+        <button class="btn" id="height-cycle"
+                title="Docked height — click to cycle 50% / 75% / full">⇕ Full</button>
         <button class="btn" id="theme-toggle" title="Switch to light theme">☀</button>
     </div>
     <div class="toolbar">
@@ -43,6 +45,10 @@
     <div id="footer-section" class="hidden">
         <div class="section-label section-label-footer">Properties of selected:</div>
         <footer id="selection-footer"></footer>
+    </div>
+
+    <div id="resize-grip" title="Drag to set the docked height">
+        <span id="resize-grip-readout"></span>
     </div>
 
     <script src="app.js"></script>

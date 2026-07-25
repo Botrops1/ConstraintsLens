@@ -139,6 +139,47 @@ def register_palette(
     _subscriptions.append((palette.closed, h_closed))
 
 
+class _CustomEventHandler(adsk.core.CustomEventHandler):
+    def __init__(self, on_fire):
+        super().__init__()
+        self._on_fire = on_fire
+
+    def notify(self, args):
+        try:
+            self._on_fire()
+        except Exception:
+            # Deliberately silent, unlike the other handlers here: this one can
+            # fire twice a second, and _report() would open a message box each
+            # time and make Fusion unusable.
+            pass
+
+
+def register_custom_event(app: adsk.core.Application, event_id: str, on_fire):
+    """Register a custom event and pin its handler (landmine M-7).
+
+    Returns the CustomEvent, or None if registration failed. Fusion runs the
+    handler on the main thread, which is what makes a custom event the only
+    safe way for a worker thread to ask for API work.
+    """
+    try:
+        # A stale registration survives a crashed or force-stopped add-in and
+        # makes the next registerCustomEvent call fail.
+        app.unregisterCustomEvent(event_id)
+    except Exception:
+        pass
+    try:
+        event = app.registerCustomEvent(event_id)
+    except Exception:
+        return None
+    if event is None:
+        return None
+    handler = _CustomEventHandler(on_fire)
+    event.add(handler)
+    _handlers.append(handler)
+    _subscriptions.append((event, handler))
+    return event
+
+
 def unregister_all() -> None:
     for event, handler in _subscriptions:
         try:

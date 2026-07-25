@@ -2,6 +2,7 @@
 
 import os
 import shutil
+import threading
 import time
 import traceback
 
@@ -36,6 +37,61 @@ _swallow_selection_until: float = 0.0
 # Set by JS on paletteReady and whenever the toggle is clicked.
 _auto_zoom: bool = False
 
+# --- Docked height control (v1.6.0) -------------------------------------
+#
+# Established empirically by tests/probe_dock_height{,2} on Fusion 2704.1.36.
+# The governing rule, which every probe observation fits:
+#
+#     docked height = min(maxHeight, columnHeight)
+#
+#   * setMaximumSize is the ONLY size constraint the dock layout preserves,
+#     and it is honoured only while the palette is FLOATING. Called on an
+#     already-docked palette it returns False and changes nothing (round 1 P2,
+#     round 2 M5) — though it does register the ceiling for Fusion's own drag
+#     handle, which is why v1.2.0's setMaximumSize(420, 700) appeared to work.
+#   * setSize / the height property resize a floating palette, but the dock
+#     layout discards the value on re-dock (round 2 M3). Useful only to GROW
+#     before re-docking, since setMaximumSize can never enlarge.
+#   * dockingOption is irrelevant here — round 2 stages 0 and 1 were both
+#     undraggable with 3 (default) and 1 (ToVerticalOnly).
+#
+# Two landmines, both confirmed by earlier PC testing: setMaximumSize(0, 0)
+# hard-locks the palette to 0x0 despite being documented as "no restriction",
+# and values >= 9999 crash Fusion and deactivate the add-in. Never emit either.
+_PALETTE_MIN_W = 200
+_PALETTE_MIN_H = 150
+_PALETTE_MAX_SAFE_PX = 4000
+
+# Tallest height ever seen while docked. With no cap in force that is the dock
+# column height; once a cap is applied every later reading is <= the column, so
+# taking the maximum preserves the original measurement. The 100% preset asks
+# for _PALETTE_MAX_SAFE_PX, which the dock layout clamps to the column — that
+# re-measures it and keeps this fresh when the Fusion window is resized.
+_dock_column_px: int = 0
+
+# Which tier of _apply_palette_height last did the work, and whether the
+# palette changed screen position doing it. Surfaced in the height button's
+# tooltip so a single test run reports what actually happened — there is no
+# way to observe this from the API afterwards.
+_last_apply_note: str = ""
+
+# Constraint/dimension tally as of the last published scan.
+#
+# commandTerminated is the only event-driven rescan trigger, but a constraint
+# tool stays active across repeated applications — apply Coincident to five
+# pairs in a row and it does not fire once, so the row counts sat stale until
+# the user switched tools.
+#
+# activeSelectionChanged looked like the fix but is not: while a command is
+# running, entity picks go into that command's own selection input rather than
+# ui.activeSelections, so the event is silent during exactly the window that
+# needed covering. No API event fires when a resident tool edits the sketch, so
+# the palette's JS side polls instead (ACTION_POLL_SKETCH), and this tally is
+# the gate — geometricConstraints.count and sketchDimensions.count are two plain
+# property reads, cheap enough to run several times a second, whereas
+# build_payload enumerates everything and is not.
+_last_sketch_counts: tuple[int, int] = (-1, -1)
+
 
 # --- Lifecycle entry points ---------------------------------------------
 
@@ -60,8 +116,14 @@ def start(addin_dir: str) -> None:
     # refreshes on commandTerminated, which is still useful.
     events.register_selection_changed(ui, _on_selection_changed)
 
+    # The only way to notice edits made by a tool that stays active.
+    _start_sketch_poll(app)
+
 
 def stop() -> None:
+    # Before unregister_all(), which drops the custom-event handler the worker
+    # thread's fireCustomEvent calls are aimed at.
+    _stop_sketch_poll()
     events.unregister_all()
 
     global _palette, _button_control, _command_definition
@@ -330,14 +392,17 @@ def _show_palette() -> None:
     # handles docking natively and remembers the last position across
     # sessions, so any state we'd impose would override the user's choice.
 
-    # setMinimumSize prevents the palette from being dragged below a
-    # readable size. No setMaximumSize call — previous testing showed that
-    # setMaximumSize(420, 700) capped height at 700 px; raising the cap
-    # (2048) caused the palette to fill the dock area and lose its resize
-    # handle when docked. Relying on isResizable=True alone to see whether
-    # Fusion's palette system arms the handle without a max-size constraint.
+    # setMinimumSize is applied here, while the palette is still floating —
+    # the only point at which the dock layout takes size constraints (see the
+    # probe notes on _dock_column_px above). It sets the floor for both the
+    # height controls and Fusion's own drag handle.
+    #
+    # No setMaximumSize call at creation: a cap would immediately shorten the
+    # palette once docked, since docked height = min(maxHeight, columnHeight).
+    # The default stays full-column height, and the user opts into a shorter
+    # palette via the height cycle button or the resize grip.
     try:
-        _palette.setMinimumSize(200, 150)
+        _palette.setMinimumSize(_PALETTE_MIN_W, _PALETTE_MIN_H)
     except Exception:
         pass
 
@@ -355,6 +420,196 @@ def _is_palette_alive(palette: adsk.core.Palette) -> bool:
         return False
 
 
+# --- Docked height control ----------------------------------------------
+
+
+def _palette_width() -> int:
+    try:
+        width = _palette.width
+        if isinstance(width, int) and width > 0:
+            return width
+    except Exception:
+        pass
+    return 420
+
+
+def _palette_height() -> int:
+    try:
+        height = _palette.height
+        return height if isinstance(height, int) and height > 0 else 0
+    except Exception:
+        return 0
+
+
+def _palette_position() -> tuple[int, int]:
+    try:
+        left, top = _palette.left, _palette.top
+        if isinstance(left, int) and isinstance(top, int):
+            return left, top
+    except Exception:
+        pass
+    return 0, 0
+
+
+def _is_docked() -> bool:
+    try:
+        floating = adsk.core.PaletteDockingStates.PaletteDockStateFloating
+        return _palette.dockingState != floating
+    except Exception:
+        return False
+
+
+def _note_dock_column() -> None:
+    """Track the tallest docked height seen — that is the dock column height."""
+    global _dock_column_px
+    if _palette is None or not _is_palette_alive(_palette) or not _is_docked():
+        return
+    height = _palette_height()
+    if height > _dock_column_px:
+        _dock_column_px = height
+
+
+def _apply_palette_height(target_px: int) -> int:
+    """Resize the palette to target_px; return the height actually achieved.
+
+    Three tiers, cheapest first, each verified by reading palette.height back
+    rather than trusting a return value — setSize is documented to report
+    success even when docking prevented the resize, and every setMaximumSize
+    call the probes made returned False whether or not it took effect.
+    """
+    global _last_apply_note
+    if _palette is None or not _is_palette_alive(_palette):
+        return 0
+
+    target = max(_PALETTE_MIN_H, min(int(target_px), _PALETTE_MAX_SAFE_PX))
+    width = _palette_width()
+
+    # A docked palette can never exceed its column, so that is the best
+    # achievable result when growing.
+    if _is_docked() and _dock_column_px:
+        expected = min(target, _dock_column_px)
+    else:
+        expected = target
+
+    def _achieved() -> int:
+        height = _palette_height()
+        return height if height and abs(height - expected) <= 2 else 0
+
+    # Tier 1 — in place. The probes say a docked palette ignores this, but the
+    # call is free, it succeeds outright when floating, and even when it does
+    # not resize it registers the ceiling for Fusion's native drag handle.
+    try:
+        _palette.setMaximumSize(width, target)
+    except Exception:
+        pass
+    hit = _achieved()
+    if hit:
+        _last_apply_note = "tier 1 (in place, no undock)"
+        return hit
+
+    # Tier 2 — force a dock re-layout by hiding and re-showing. Untested by the
+    # probes, but if it works it is strictly better than tier 3: it keeps the
+    # palette's slot in the dock column instead of undocking and returning.
+    try:
+        _palette.isVisible = False
+        adsk.doEvents()
+        _palette.isVisible = True
+        adsk.doEvents()
+    except Exception:
+        pass
+    hit = _achieved()
+    if hit:
+        _last_apply_note = "tier 2 (visibility nudge, no undock)"
+        return hit
+
+    # Tier 3 — the mechanism probe M4 proved: a cap applied while FLOATING is
+    # preserved through docking. setSize goes alongside it because
+    # setMaximumSize only ever shrinks, so growing needs both.
+    #
+    # The two calls take different values on purpose. The cap gets the raw
+    # target so that "full" (which asks for the safe ceiling) leaves no
+    # practical limit if the Fusion window is later enlarged. setSize gets the
+    # clamped height, so the palette does not briefly become 4000 px tall
+    # while floating on its way to being re-docked.
+    grow_to = min(expected, _dock_column_px or 1200)
+    before_pos = _palette_position()
+    previous_state = None
+    try:
+        floating = adsk.core.PaletteDockingStates.PaletteDockStateFloating
+        previous_state = _palette.dockingState
+        if previous_state != floating:
+            _palette.dockingState = floating
+            adsk.doEvents()
+        try:
+            _palette.setMaximumSize(width, target)
+        except Exception:
+            pass
+        try:
+            _palette.setSize(width, grow_to)
+        except Exception:
+            pass
+        adsk.doEvents()
+        if previous_state != floating:
+            _palette.dockingState = previous_state
+            adsk.doEvents()
+    except Exception:
+        # Never strand the palette floating because the sequence failed midway.
+        if previous_state is not None:
+            try:
+                _palette.dockingState = previous_state
+            except Exception:
+                pass
+
+    # Whether re-docking put the palette back in the same slot is the one
+    # thing the probes could not answer, and it is invisible to the API after
+    # the fact — so record the shift while we still have the before reading.
+    after_pos = _palette_position()
+    shift = (after_pos[0] - before_pos[0], after_pos[1] - before_pos[1])
+    moved = "same slot" if shift == (0, 0) else f"moved by {shift[0]},{shift[1]} px"
+    _last_apply_note = f"tier 3 (float + re-dock, {moved})"
+
+    return _palette_height()
+
+
+def _push_dock_info() -> None:
+    if _palette is None:
+        return
+    messaging.send(_palette, messaging.PY_ACTION_DOCK_INFO, {
+        "docked": _is_docked(),
+        "heightPx": _palette_height(),
+        "columnPx": _dock_column_px,
+        "minPx": _PALETTE_MIN_H,
+        "note": _last_apply_note,
+    })
+
+
+def _handle_set_palette_height(payload: dict) -> None:
+    global _dock_column_px
+    if _palette is None or not _is_palette_alive(_palette):
+        return
+
+    _note_dock_column()
+
+    if bool(payload.get("full")):
+        # The cap cannot be removed — setMaximumSize(0, 0) hard-locks the
+        # palette. Raising it to the safe ceiling is equivalent, because the
+        # dock layout clamps to the column; the clamped result also re-measures
+        # the column, so this doubles as recalibration after a window resize.
+        achieved = _apply_palette_height(_PALETTE_MAX_SAFE_PX)
+        if achieved > 0 and _is_docked():
+            _dock_column_px = achieved
+    else:
+        try:
+            target = int(payload.get("heightPx", 0))
+        except Exception:
+            target = 0
+        if target <= 0:
+            return
+        _apply_palette_height(target)
+
+    _push_dock_info()
+
+
 # --- Message handling ---------------------------------------------------
 
 
@@ -369,6 +624,8 @@ def _on_palette_message(action: str, raw: str) -> None:
         _publish_active(app)
         _push_selection_info(app)
         _push_selection_tokens(app)
+        _note_dock_column()
+        _push_dock_info()
         return
 
     if action == messaging.ACTION_SELECT_ENTITIES:
@@ -411,6 +668,10 @@ def _on_palette_message(action: str, raw: str) -> None:
         _auto_zoom = bool(payload.get("enabled", False))
         return
 
+    if action == messaging.ACTION_SET_PALETTE_HEIGHT:
+        _handle_set_palette_height(payload)
+        return
+
     # Unknown action — log and ignore (forward-compat per SPEC.md section 7).
 
 
@@ -423,6 +684,11 @@ def _on_palette_closed() -> None:
 def _on_change() -> None:
     app = adsk.core.Application.get()
     _publish_active(app)
+    # There is no palette dock/resize event in the API, so commandTerminated is
+    # the cheapest existing hook for noticing that the user has dragged the
+    # palette into or out of a dock column.
+    _note_dock_column()
+    _push_dock_info()
 
 
 def _on_selection_changed() -> None:
@@ -431,9 +697,133 @@ def _on_selection_changed() -> None:
     # generic "Selected:" payload doesn't overwrite "Underconstrained:".
     if time.monotonic() < _swallow_selection_until:
         return
+    # No rescan here: selection changes cannot alter the constraint tally, and
+    # the poll covers anything that can within one interval.
     _push_selection_info(app)
     _push_selection_tokens(app)
     _zoom_to_active_selection(app)
+
+
+# --- Sketch poll --------------------------------------------------------
+#
+# No Fusion event fires while a resident sketch tool edits the sketch. Measured
+# 2026-07-25 (tests log %TEMP%\cl_poll.log): applying three tangent constraints
+# with the tool left active produced 22 seconds of total event silence — no
+# commandTerminated, no activeSelectionChanged — then a single
+# "TERM cmd=ConstraintTangent" with the tally already advanced 9 -> 12.
+#
+# The counts DO move mid-command — confirmed in the same run, which caught
+# gc stepping 9 -> 10 -> 11 -> 12 as each tangent constraint landed, well before
+# the terminating event. So Fusion does not hold a resident tool's edits in a
+# transient state; nothing was simply watching for them.
+#
+# A setInterval in the palette web view was tried first and abandoned. Note its
+# failure reason was never established — that run logged no messages at all,
+# equally consistent with the JS not having been deployed. A worker thread is the
+# sounder mechanism regardless, since it does not depend on the web view being
+# loaded or focused.
+#
+# The thread itself only calls fireCustomEvent. Fusion runs the handler on the
+# main thread; touching the API from the worker would crash.
+_POLL_EVENT_ID = "ConstraintLensSketchPoll"
+_POLL_INTERVAL_S = 0.5
+
+_poll_stop: threading.Event | None = None
+_poll_thread: threading.Thread | None = None
+
+# At most one tick in flight. Without this the worker fires on schedule whether
+# or not the main thread is keeping up, and Fusion queues the events: a measured
+# 3.9-second main-thread stall was followed by 8 ticks delivered within 30 ms.
+# A minute-long stall would queue 120. Set before firing, cleared by the handler.
+_poll_in_flight = threading.Event()
+
+
+def _start_sketch_poll(app: adsk.core.Application) -> None:
+    global _poll_stop, _poll_thread
+    if _poll_thread is not None:
+        return
+    if events.register_custom_event(app, _POLL_EVENT_ID, _on_poll_tick) is None:
+        return
+
+    _poll_stop = threading.Event()
+    _poll_in_flight.clear()
+
+    def _loop(stop_flag: threading.Event) -> None:
+        # wait() doubles as the sleep and the cancellation check, so stop() is
+        # never left waiting a full interval for the thread to notice.
+        while not stop_flag.wait(_POLL_INTERVAL_S):
+            if _poll_in_flight.is_set():
+                continue          # main thread still busy — skip, don't queue
+            _poll_in_flight.set()
+            try:
+                adsk.core.Application.get().fireCustomEvent(_POLL_EVENT_ID)
+            except Exception:
+                _poll_in_flight.clear()
+                return
+
+    _poll_thread = threading.Thread(target=_loop, args=(_poll_stop,), daemon=True)
+    _poll_thread.start()
+
+
+def _stop_sketch_poll() -> None:
+    global _poll_stop, _poll_thread
+    if _poll_stop is not None:
+        _poll_stop.set()
+    if _poll_thread is not None:
+        try:
+            _poll_thread.join(timeout=2.0)
+        except Exception:
+            pass
+    _poll_thread = None
+    _poll_stop = None
+    try:
+        adsk.core.Application.get().unregisterCustomEvent(_POLL_EVENT_ID)
+    except Exception:
+        pass
+
+
+def _on_poll_tick() -> None:
+    try:
+        _republish_if_sketch_changed(adsk.core.Application.get())
+    finally:
+        # In a finally so a raising tick cannot wedge the poll permanently.
+        _poll_in_flight.clear()
+
+
+def _sketch_counts(sketch) -> tuple[int, int]:
+    """Geometric-constraint and dimension tally — two property reads, no
+    enumeration, so it is safe to call on every selection change."""
+    try:
+        return sketch.geometricConstraints.count, sketch.sketchDimensions.count
+    except Exception:
+        return (-1, -1)
+
+
+def _republish_if_sketch_changed(app: adsk.core.Application) -> None:
+    """Rescan when constraints have been added or removed since the last scan.
+
+    Covers the case commandTerminated misses: a constraint tool that stays
+    active while the user applies it to one pair of entities after another.
+    """
+    if _palette is None:
+        return
+    # Nothing to update behind a hidden palette, and messaging.send() would
+    # drop the payload anyway — so skip before doing any scanning work.
+    try:
+        if not _palette.isVisible:
+            return
+    except Exception:
+        return
+    try:
+        sketch = scanner.active_sketch(app)
+    except Exception:
+        return
+    if sketch is None:
+        return
+    counts = _sketch_counts(sketch)
+    if counts == (-1, -1) or counts == _last_sketch_counts:
+        return
+    _publish_active(app)
 
 
 def _push_selection_info(app: adsk.core.Application) -> None:
@@ -755,10 +1145,12 @@ def _fmt_volume(units, value_cm3) -> str:
 
 
 def _publish_active(app: adsk.core.Application) -> None:
+    global _last_sketch_counts
     if _palette is None:
         return
     sketch = scanner.active_sketch(app)
     if sketch is None:
+        _last_sketch_counts = (-1, -1)
         messaging.send(_palette, messaging.PY_ACTION_NO_ACTIVE_SKETCH, {
             "reason": "Open a sketch for edit to see its constraints.",
         })
@@ -772,6 +1164,9 @@ def _publish_active(app: adsk.core.Application) -> None:
             "context": "build_payload",
         })
         return
+    # Recorded here, the one place a scan is published, so the tally cannot
+    # drift out of step with what the palette is actually showing.
+    _last_sketch_counts = _sketch_counts(sketch)
     messaging.send(_palette, messaging.PY_ACTION_DATA, payload)
     _push_selection_info(app)
 
