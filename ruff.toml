@@ -1,0 +1,22 @@
+# Ruff configuration.
+#
+# The rule set is stated explicitly on purpose. CI installs ruff unpinned, and
+# ruff 0.16.0 widened its implicit default set to include BLE001
+# (blind-except), S110 (try-except-pass), PLR1730 and RUF100. That broke the
+# build on a docs-only commit, because the new rules fire on ~200 pre-existing
+# places rather than on anything that had changed.
+#
+# E4/E7/E9/F is what this project has always been linted against — the set that
+# ruff itself defaulted to before 0.16.0. Naming it here means a ruff upgrade
+# can no longer change what CI enforces without a deliberate edit to this file.
+#
+# BLE001 and S110 in particular must stay off. `except Exception: pass` around
+# Fusion API access is the deliberate house style, not an oversight: accessors
+# on preview-API objects raise inconsistently between Fusion builds, and a
+# handler that raises can deactivate the whole add-in. See the landmine notes
+# in CLAUDE.md (M-1 accessor guards, M-7 handler pinning, M-8 palette sends).
+
+target-version = "py311"   # matches .github/workflows/lint.yml
+
+[lint]
+select = ["E4", "E7", "E9", "F"]

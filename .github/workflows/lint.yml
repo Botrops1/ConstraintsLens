@@ -16,8 +16,15 @@ jobs:
         with:
           python-version: "3.11"
 
+      # Pinned to a compatible release. This was unpinned, and ruff 0.16.0
+      # widened its implicit default rule set, which failed the build on a
+      # docs-only commit. ruff.toml now names the rule set explicitly, so the
+      # pin is only a second line of defence against a minor release adding
+      # new rules under the E4/E7/E9/F prefixes.
       - name: Install ruff
-        run: pip install ruff
+        run: pip install "ruff~=0.16.0"
 
       - name: Run ruff
-        run: ruff check .
+        run: |
+          ruff --version
+          ruff check .
