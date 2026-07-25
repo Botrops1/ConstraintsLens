@@ -37,18 +37,24 @@ _swallow_selection_until: float = 0.0
 # Set by JS on paletteReady and whenever the toggle is clicked.
 _auto_zoom: bool = False
 
-# --- Auto-hide on sketch exit (issue #9) --------------------------------
+# --- Palette visibility follows sketch-edit mode (issue #9) -------------
 #
-# Opt-in, set by JS the same way as _auto_zoom. Off by default so the palette
-# keeps its long-standing behaviour unless asked.
-_auto_hide: bool = False
+# The palette has no purpose outside a sketch, so it is hidden on sketch exit
+# unconditionally — this was an opt-in pin toggle in the first cut and the
+# toggle was dropped as pointless.
+#
+# It comes back automatically on the next sketch, but only once the user has
+# opened it at least once this session: nobody wants a palette appearing in
+# every sketch of a session where they never asked for it. Closing it with the
+# X button clears the flag, which is the escape hatch — it then stays away
+# until the toolbar button is clicked again.
+_ever_opened: bool = False
 
-# True only while the palette is hidden *because we hid it*. Without this the
-# palette would be forced open again on the next sketch for someone who had
-# deliberately closed it with the X button: closing manually leaves this False,
-# so auto-show skips them. _show_palette() clears it, because clicking the
-# toolbar button is an explicit "I want this open" that supersedes the flag.
-_auto_hidden: bool = False
+# Set while we drive isVisible ourselves. The `closed` event is documented as
+# firing when the *user* clicks the X, but if a build also raises it on a
+# programmatic hide then auto-hide would clear _ever_opened and silently
+# disable auto-open. Cheap insurance against that.
+_suppress_closed_event: bool = False
 
 # Reentrancy guard. _apply_palette_height() calls adsk.doEvents(), which can
 # dispatch a queued poll tick mid-sequence — and that tick must not toggle
@@ -370,13 +376,13 @@ class _CommandCreatedHandler(adsk.core.CommandCreatedEventHandler):
 
 
 def _show_palette() -> None:
-    global _palette, _auto_hidden
+    global _palette, _ever_opened
     app = adsk.core.Application.get()
     ui = app.userInterface
 
-    # Clicking the toolbar button is an explicit "I want this open", which
-    # supersedes any auto-hide bookkeeping (issue #9).
-    _auto_hidden = False
+    # Clicking the toolbar button opts this session into auto-reopening the
+    # palette on every later sketch (issue #9 / #3).
+    _ever_opened = True
 
     if _palette is not None and _is_palette_alive(_palette):
         _palette.isVisible = True
@@ -649,14 +655,13 @@ def _handle_set_palette_height(payload: dict) -> None:
 
 
 def _on_palette_message(action: str, raw: str) -> None:
-    global _auto_zoom, _auto_hide, _auto_hidden
+    global _auto_zoom
     app = adsk.core.Application.get()
     payload = messaging.parse_incoming(raw)
 
     if action == messaging.ACTION_PALETTE_READY or action == messaging.ACTION_REQUEST_REFRESH:
         if action == messaging.ACTION_PALETTE_READY:
             _auto_zoom = bool(payload.get("autoZoom", False))
-            _auto_hide = bool(payload.get("autoHide", False))
         _publish_active(app)
         _push_selection_info(app)
         _push_selection_tokens(app)
@@ -704,14 +709,6 @@ def _on_palette_message(action: str, raw: str) -> None:
         _auto_zoom = bool(payload.get("enabled", False))
         return
 
-    if action == messaging.ACTION_SET_AUTO_HIDE:
-        _auto_hide = bool(payload.get("enabled", False))
-        if not _auto_hide:
-            # Turning it off must not leave a stale claim that we hid it.
-            _auto_hidden = False
-        _apply_auto_hide(app)
-        return
-
     if action == messaging.ACTION_SET_PALETTE_HEIGHT:
         _handle_set_palette_height(payload)
         return
@@ -720,14 +717,19 @@ def _on_palette_message(action: str, raw: str) -> None:
 
 
 def _on_palette_closed() -> None:
-    # No-op for MVP: subscribed events keep firing harmlessly because
-    # send() gates on isVisible. The palette is reopenable via the button.
-    pass
+    # Closing with the X is the opt-out from auto-reopening: the palette stays
+    # away until the toolbar button is clicked again. Ignored when we are the
+    # ones hiding it, so auto-hide cannot disable auto-open.
+    global _ever_opened
+    if _suppress_closed_event:
+        return
+    _ever_opened = False
 
 
 def _on_change() -> None:
     app = adsk.core.Application.get()
-    _apply_auto_hide(app)
+    _update_poll_enabled(app)
+    _sync_palette_visibility(app)
     _publish_active(app)
     # There is no palette dock/resize event in the API, so commandTerminated is
     # the cheapest existing hook for noticing that the user has dragged the
@@ -776,6 +778,20 @@ _POLL_INTERVAL_S = 0.5
 _poll_stop: threading.Event | None = None
 _poll_thread: threading.Thread | None = None
 
+# The poll only fires while a sketch is being edited.
+#
+# It exists solely to catch edits made by a resident sketch tool, so outside
+# sketch-edit mode there is nothing for it to find. Leaving it running there was
+# an active harm, not just waste: a custom event dispatched on the main thread
+# every 500 ms sits right on Windows' ~500 ms double-click threshold, and a tick
+# landing between the two clicks broke double-click-to-edit-sketch in the
+# browser and the timeline.
+#
+# commandTerminated flips this: it fires on SketchActivate when entering a
+# sketch and SketchStop when leaving (both confirmed in the probe log), so the
+# poll resumes without needing a poll to notice it should resume.
+_poll_enabled: bool = False
+
 # At most one tick in flight. Without this the worker fires on schedule whether
 # or not the main thread is keeping up, and Fusion queues the events: a measured
 # 3.9-second main-thread stall was followed by 8 ticks delivered within 30 ms.
@@ -797,6 +813,8 @@ def _start_sketch_poll(app: adsk.core.Application) -> None:
         # wait() doubles as the sleep and the cancellation check, so stop() is
         # never left waiting a full interval for the thread to notice.
         while not stop_flag.wait(_POLL_INTERVAL_S):
+            if not _poll_enabled:
+                continue          # not editing a sketch — stay completely quiet
             if _poll_in_flight.is_set():
                 continue          # main thread still busy — skip, don't queue
             _poll_in_flight.set()
@@ -827,30 +845,45 @@ def _stop_sketch_poll() -> None:
         pass
 
 
+def _update_poll_enabled(app: adsk.core.Application) -> None:
+    """Enable the poll only while a sketch is being edited (see _poll_enabled)."""
+    global _poll_enabled
+    try:
+        _poll_enabled = scanner.active_sketch(app) is not None
+    except Exception:
+        _poll_enabled = False
+
+
 def _on_poll_tick() -> None:
     try:
         app = adsk.core.Application.get()
+        # Lets the poll switch itself off the moment the sketch closes, without
+        # waiting for a commandTerminated that may not come.
+        _update_poll_enabled(app)
         # Before the rescan: _republish_if_sketch_changed() bails out on a
         # hidden palette, so auto-show has to get its chance first.
-        _apply_auto_hide(app)
+        _sync_palette_visibility(app)
         _republish_if_sketch_changed(app)
     finally:
         # In a finally so a raising tick cannot wedge the poll permanently.
         _poll_in_flight.clear()
 
 
-def _apply_auto_hide(app: adsk.core.Application) -> None:
-    """Hide the palette when no sketch is being edited, and bring it back on
-    the next sketch — but only if it was us who hid it (issue #9).
+def _sync_palette_visibility(app: adsk.core.Application) -> None:
+    """Track sketch-edit mode: hidden outside it, restored on re-entry.
 
-    Fusion has no minimize state for a palette (isVisible, dockingState and
-    size are the whole surface), so "collapsed" is not available; this is a
-    plain hide/show. Dock position is deliberately left alone — forcing it was
-    tried in v1.2.0 and reverted in v1.2.1 as redundant and confusing, since
-    Fusion already remembers the user's choice.
+    Restoring is gated on _ever_opened so the palette only reappears in
+    sessions where it was actually asked for.
+
+    Collapse is deliberately not touched. Fusion's native collapse arrows on a
+    docked palette are not exposed to the API — the whole Palette surface is
+    isVisible / dockingState / dockingOption / size / position — so whatever
+    collapsed state Fusion remembers is simply carried through the hide/show.
+    Dock position is left alone too: forcing it was tried in v1.2.0 and
+    reverted in v1.2.1 as redundant and confusing.
     """
-    global _auto_hidden
-    if not _auto_hide or _palette is None or _applying_height:
+    global _suppress_closed_event
+    if _palette is None or _applying_height:
         return
     if not _is_palette_alive(_palette):
         return
@@ -862,11 +895,13 @@ def _apply_auto_hide(app: adsk.core.Application) -> None:
     try:
         if not in_sketch:
             if _palette.isVisible:
-                _palette.isVisible = False
-                _auto_hidden = True
-        elif _auto_hidden:
+                _suppress_closed_event = True
+                try:
+                    _palette.isVisible = False
+                finally:
+                    _suppress_closed_event = False
+        elif _ever_opened and not _palette.isVisible:
             _palette.isVisible = True
-            _auto_hidden = False
             # Data went stale while hidden: messaging.send() drops everything
             # for an invisible palette (landmine M-8).
             _publish_active(app)

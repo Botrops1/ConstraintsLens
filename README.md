@@ -53,8 +53,7 @@ Fills the long-standing UX gap of having to hunt tiny on-canvas glyphs to audit 
 │  [∥] Parallel (Line 3)(Line 4)        □ │
 │  …                                       │
 │  ☑ DIMENSIONS (3)                     ▾  │
-│  [◇] Linear (Line 1)(Line 3)          □ │
-│      40 mm                             ✎ │  ← editable expression
+│  [◇] Linear (Line 1)(Line 3) = 40 mm ✎ □ │  ← value inline, ✎ always visible
 │  …                                       │
 │  ENDPOINT JOINS (4)                   ▾  │
 │  [⊘] Endpoint join (Point 1)(Line 2)    │
@@ -91,11 +90,11 @@ One toggle button sits on the right end of the name bar:
 | **Delete N** | Deletes all checked rows at once after a confirmation prompt (visible only when rows are checked). |
 | **Show u/c** | Calls Fusion's built-in Show Underconstrained command. Under-constrained entities are surfaced as clickable chips in the "Selected:" strip. Requires an active sketch edit context. |
 | **Refresh** | Manually re-scans the active sketch. Usually not needed — the palette refreshes automatically after every sketch edit. |
-| **📌 / 📍** (pin) | Controls what happens when you leave a sketch. **📌 Pinned (default)** — the palette stays open. **📍 Auto-hide** — it hides on sketch exit and returns on the next sketch you edit. Preference is saved in `localStorage`. |
-
-> **Auto-hide and manual closing don't fight each other.** If you close the palette yourself with the **✕**, auto-hide will not reopen it on the next sketch — only a palette that auto-hide itself hid gets brought back. Click **Constraint Lens** in the Sketch toolbar to reopen it whenever you want.
+> **The palette follows sketch-edit mode.** It hides when you leave a sketch — it has nothing to show outside one — and comes back automatically on the next sketch you edit, so you only have to open it once per Fusion session.
 >
-> Fusion provides no minimize state for a palette, so auto-hide hides and shows rather than collapsing to a title bar, and it never changes your dock position.
+> **To stop it reappearing**, close it with the **✕**. It then stays away until you click **Constraint Lens** in the Sketch toolbar again.
+>
+> Your dock position, size and collapsed state are preserved across the hide/show, because Fusion remembers them itself — ConstraintLens never changes them.
 
 ### Selected section (canvas → palette, automatic)
 
@@ -115,6 +114,16 @@ The **⌕ Zoom** button at the right end of the "Selected:" header controls **au
 When **Show u/c** is triggered, the section header changes to "Underconstrained:" and shows chips for all under-constrained entities instead of the generic canvas selection.
 
 ### Row layout and the full description
+
+A dimension row reads as a single line — icon, type, entity chips, then `=` and
+the editable value with an always-visible **✎**:
+
+```
+[◇] Linear  (Line 1) (Line 3)  = 40 mm ✎
+```
+
+Click **✎** (or double-click the row) to edit the value in place; Enter commits,
+Esc cancels.
 
 Each row shows the constraint **type** followed by its entities as clickable
 chips. The entity names are deliberately not repeated as prose next to the type —

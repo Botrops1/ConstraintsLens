@@ -18,7 +18,6 @@
         openEditDialog: "openEditDialog",
         editParameter: "editParameter",
         setAutoZoom: "setAutoZoom",
-        setAutoHide: "setAutoHide",
         setPaletteHeight: "setPaletteHeight",
     };
 
@@ -160,7 +159,6 @@
         selectedLabel: document.getElementById("selected-label"),
         selectedLabelText: document.getElementById("selected-label-text"),
         autozoomToggle: document.getElementById("autozoom-toggle"),
-        autohideToggle: document.getElementById("autohide-toggle"),
         filterClear: document.getElementById("filter-clear"),
         themeToggle: document.getElementById("theme-toggle"),
         selectionFooter: document.getElementById("selection-footer"),
@@ -502,6 +500,27 @@
         img.replaceWith(tmpl.content.firstElementChild || tmpl.content.firstChild);
     }, true);
 
+    // dispatch.py builds labels with three different separators depending on the
+    // row type, and each one is followed by information the row already shows
+    // elsewhere as chips or as the editable expression:
+    //
+    //   "Tangent — Line 3 ⌒ Arc 1"              geometric constraints
+    //   "Linear: Line 1 → Line 3 = 30 mm"       dimensions with two entities
+    //   "Diameter = 20 mm"                      dimensions with none
+    //
+    // Cut at whichever comes first and keep only the type name. Labels with no
+    // separator at all (e.g. "Offset (1→1 curves, 30 mm)") are left whole.
+    const LABEL_SEPARATORS = [" — ", ": ", " = "];
+
+    function labelHeadOf(full) {
+        let cut = full.length;
+        for (const sep of LABEL_SEPARATORS) {
+            const i = full.indexOf(sep);
+            if (i >= 0 && i < cut) cut = i;
+        }
+        return full.slice(0, cut);
+    }
+
     function rowHTML(row) {
         // Prefer kind-specific icon; fall back to glyph stem (e.g. "dimension").
         const _glyphStem = (row.glyph || "").replace(/\.svg$/, "");
@@ -530,8 +549,13 @@
             : "";
 
         // Inline dimension expression (#6) — shown only for rows with a parameter.
+        // Sits inside .row-head so a dimension reads as one line:
+        //   [icon] Linear  [Line 1] [Line 3]  = 30 mm ✎
+        // The .dim-expr-wrap / .dim-expr structure is load-bearing — the edit
+        // handler finds the value via closest(".dim-expr-wrap").
         const exprHTML = row.parameterExpression
-            ? `<div class="dim-expr-wrap">
+            ? `<div class="dim-expr-wrap inline">
+                <span class="dim-expr-eq">=</span>
                 <span class="dim-expr">${escape(row.parameterExpression)}</span>
                 <button class="btn-edit" data-action="editExpr" data-token="${escape(row.token || "")}"
                         title="Edit expression (Enter to commit, Esc to cancel)">✎</button>
@@ -575,7 +599,7 @@
         // and matchesFilter() reads row.label / row.kind from the data rather
         // than the DOM, so filtering by either still works.
         const fullLabel = row.label || "";
-        const labelHead = fullLabel.split(" — ")[0];
+        const labelHead = labelHeadOf(fullLabel);
         const labelTitle = [fullLabel, row.kind || ""].filter(Boolean).join("\n");
 
         // Pseudo rows (implicit joins) can't be checked or deleted individually.
@@ -598,8 +622,8 @@
                         <span class="row-label" title="${escape(labelTitle)}">${escape(labelHead)}</span>
                         ${badges.join("")}
                         ${chips ? `<div class="chips">${chips}</div>` : ""}
+                        ${exprHTML}
                     </div>
-                    ${exprHTML}
                     ${paramsHTML}
                     ${errorsHTML}
                 </div>
@@ -994,35 +1018,6 @@
     // that test ran against a file the sync client had rolled back, so the JS
     // was not present — but there is no reason to revisit it.
 
-    // --- Auto-hide on sketch exit (issue #9) -----------------------------
-    //
-    // Pin metaphor, and note the sense is inverted relative to the flag:
-    // pinned (default, .active) means "stay open", so autoHide is OFF. Default
-    // is pinned so existing behaviour is unchanged unless the user opts in.
-    //
-    // Fusion has no minimize state for a palette, so this hides and shows
-    // rather than collapsing, and it never touches dock position.
-
-    const autohidePresent = !!els.autohideToggle;
-    let autoHideOn = localStorage.getItem("cl-autohide") === "true";
-
-    function updateAutoHideButton() {
-        if (!autohidePresent) return;
-        // .active marks the pinned (non-auto-hiding) state.
-        els.autohideToggle.classList.toggle("active", !autoHideOn);
-        els.autohideToggle.textContent = autoHideOn ? "📍" : "📌";
-        els.autohideToggle.title = autoHideOn
-            ? "Auto-hide on — palette hides when you leave a sketch, returns on the next one. Click to pin it open."
-            : "Pinned — palette stays open when you leave a sketch. Click to auto-hide instead.";
-    }
-
-    if (autohidePresent) els.autohideToggle.addEventListener("click", () => {
-        autoHideOn = !autoHideOn;
-        localStorage.setItem("cl-autohide", String(autoHideOn));
-        updateAutoHideButton();
-        send(JS_TO_PY.setAutoHide, { enabled: autoHideOn });
-    });
-
     // --- Theme toggle (#5) -----------------------------------------------
 
     function updateThemeButton(theme) {
@@ -1044,8 +1039,7 @@
         updateThemeButton(savedTheme);
         updateAutoZoomButton();
         updateHeightButton();
-        updateAutoHideButton();
         state.loaded = true;
-        _sendWhenReady(JS_TO_PY.paletteReady, { autoZoom: autoZoomOn, autoHide: autoHideOn });
+        _sendWhenReady(JS_TO_PY.paletteReady, { autoZoom: autoZoomOn });
     });
 })();

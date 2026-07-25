@@ -30,22 +30,47 @@ way to tell apart two dimensions that read the same. Selecting a sketch point no
 shows **`Z`** alongside X and Y; the coordinates are sketch-space, so Z carries
 real information in a 3D sketch.
 
-### Auto-hide when leaving a sketch (#9)
+### Fixed: double-click to edit a sketch stopped working
 
-New **📌** toggle in the toolbar. Pinned is the default and keeps today's
-behaviour; switch it to **📍** and the palette hides when you leave a sketch and
-comes back on the next one you edit.
+Double-clicking a sketch in the browser or the timeline stopped entering
+sketch-edit mode; only right-click → Edit Sketch worked. This was a regression
+introduced by the live-row-count poll earlier in this release.
 
-Closing the palette yourself with the ✕ is respected — auto-hide only reopens a
-palette that auto-hide itself hid, so a deliberate close is not undone on the
-next sketch.
+The poll fired a custom event every 500 ms, processed on Fusion's main thread —
+and Windows' double-click threshold is also around 500 ms, so a tick landing
+between the two clicks broke double-click recognition.
 
-Two parts of the request could not be done as asked. Fusion's `Palette` exposes
-only `isVisible`, `dockingState` and size — there is **no minimize or collapse
-state** — so this hides and shows rather than collapsing to a title bar. And the
-dock position is deliberately left alone: forcing it was tried in v1.2.0 and
-reverted in v1.2.1 as redundant and confusing, because Fusion already remembers
-the user's choice across sessions.
+The poll exists only to catch edits made by a resident sketch tool, so outside
+sketch-edit mode it has nothing to look for. It is now completely silent there,
+which removes the interference and the wasted work at the same time.
+
+### Palette follows sketch-edit mode (#9)
+
+The palette now hides whenever you leave a sketch, and reappears on the next
+sketch you edit — so it only needs opening once per Fusion session. The **📌**
+pin toggle from the first cut of this feature has been removed; there was no
+reason to keep the palette visible outside a sketch.
+
+Closing it with the **✕** is the opt-out: it then stays away until you click
+**Constraint Lens** in the Sketch toolbar again.
+
+Note on collapsing: Fusion's native collapse arrows on a docked palette are
+**not exposed to the API** — the entire `Palette` surface is `isVisible`,
+`dockingState`, `dockingOption`, size and position. ConstraintLens therefore
+never changes your collapsed state, dock position or size; whatever Fusion
+remembers is carried straight through the hide and show.
+
+### Dimension rows on one line
+
+A dimension row now reads `[◇] Linear (Line 1) (Line 3) = 40 mm ✎`, with the
+value inline and the pencil always visible rather than appearing on hover.
+
+The earlier density pass missed dimensions entirely. It cut labels at `" — "`,
+but `dispatch.py` builds dimension labels with different separators —
+`"Linear: Line 1 → Line 3 = 30 mm"` — so those rows were still printing the
+entity names in the label *and* as chips, and the value in the label *and* in
+the expression line below. Label trimming now cuts at whichever of `" — "`,
+`": "` or `" = "` comes first.
 
 ### Denser rows — roughly 2.5× more visible at the same height
 

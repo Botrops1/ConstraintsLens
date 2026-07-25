@@ -388,6 +388,15 @@ main::-webkit-scrollbar-thumb:hover { background: var(--fg-muted); }
     margin-top: 2px;
 }
 
+/* Dimension value living on the .row-head line rather than below it. The
+   pattern/polygon parameter rows keep the block form and its margin. */
+.dim-expr-wrap.inline { margin-top: 0; }
+
+.dim-expr-eq {
+    font-size: 11px;
+    color: var(--fg-muted);
+}
+
 .dim-expr {
     font-size: 12px;
     color: var(--accent);
@@ -409,7 +418,9 @@ main::-webkit-scrollbar-thumb:hover { background: var(--fg-muted); }
     padding: 0 2px;
     font-size: 11px;
     line-height: 1;
-    opacity: 0;
+    /* Always visible, not hover-revealed: on a one-line dimension row the
+       pencil is the only cue that the value is editable at all. */
+    opacity: 0.55;
     transition: opacity 0.1s;
 }
 .dim-expr-wrap:hover .btn-edit { opacity: 1; }
