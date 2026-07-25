@@ -15,6 +15,14 @@ __pycache__/
 # IDE
 .vscode/
 
+# Proton Drive sync-conflict copies. The repo lives inside a synced folder, and
+# the client has twice rolled a source file back and stashed the newer version
+# under a name like "app (# Name clash 2026-07-25 n2epj7C #).js". Ignored so a
+# stray copy can never be committed or bundled into a release zip — but note
+# that seeing one means an edit may have been silently reverted, so check the
+# working tree rather than just deleting it.
+*# Name clash *
+
 # Fusion native icons — copied at add-in startup from the Fusion install
 # (proprietary Autodesk assets, not committed)
 ConstraintLens/palette/icons/
