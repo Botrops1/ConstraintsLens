@@ -2,7 +2,69 @@
 
 ---
 
-## v1.5.0 (current)
+## v1.6.0 (current)
+
+**Adjustable palette height while docked, and live row counts while a tool is active.**
+
+### Live refresh while a constraint tool stays active
+
+Applying the same constraint to one pair of entities after another used to leave
+the row list and the section counts frozen until you switched tools or pressed
+Esc. They now update within half a second of each constraint landing.
+
+Fusion fires no event at all while a resident tool edits the sketch — a measured
+run applied three tangent constraints over 22 seconds and produced no
+`commandTerminated` and no `activeSelectionChanged`, just one terminating event
+at the end with the tally already advanced. `activeSelectionChanged` cannot help
+either, because during a command entity picks go to that command's own selection
+input rather than `ui.activeSelections`.
+
+So there is now a 500 ms poll, on a worker thread that only calls
+`fireCustomEvent`; Fusion runs the handler on the main thread, where the API is
+safe to touch. Each tick reads `geometricConstraints.count` and
+`sketchDimensions.count` — two property reads, no enumeration — and only runs a
+full `build_payload` scan when that tally has actually moved. Ticks are
+single-in-flight, so a busy main thread makes the poll skip rather than queue
+events up for a burst later, and the whole thing short-circuits when the palette
+is hidden.
+
+### Adjustable palette height while docked
+
+A docked ConstraintLens used to be stuck at the full height of the dock
+column. It now has a **⇕ 50% / 75% / Full** cycle button on the name bar and
+a drag grip along the bottom edge for any height in between. The preset is
+remembered in `localStorage` and re-applied the next time the palette docks.
+
+### Why it took until now
+
+Probe scripts (`tests/probe_dock_height/`, `tests/probe_dock_height2/`) run
+against Fusion 2704.1.36 established one rule that explains every earlier
+failed attempt:
+
+```
+docked height = min(maxHeight, columnHeight)
+```
+
+`setMaximumSize` is the only size constraint the dock layout preserves, and
+it is honoured **only while the palette is floating** — called on a docked
+palette it returns `False` and changes nothing. `setSize` and the `height`
+property resize a floating palette but the dock layout discards the value on
+re-dock. So applying a height requires floating the palette, capping it, and
+re-docking, which is what `_apply_palette_height` does (after first trying two
+cheaper approaches and verifying each by reading `palette.height` back).
+
+This also corrects the v1.3.2 note below. `setMaximumSize(420, 700)` did not
+"arm a Qt resize handle" — it set a drag ceiling, which is why the palette
+appeared resizable up to exactly that height and no further. `2048` looked
+like a no-op because `min(2048, columnHeight)` is just the column, and
+removing the call entirely in v1.4 lost the affordance altogether.
+`dockingOption` turned out to be irrelevant: with both the default
+`ToVerticalAndHorizontal` and the native-palette `ToVerticalOnly`, a docked
+palette had no drag handle at all.
+
+---
+
+## v1.5.0
 
 **GUI improvements: auto-filter, section select-all, scrollable strips, ✕ clear button, profile area, auto-zoom toggle.**
 
@@ -32,6 +94,13 @@ The ⌕ auto-zoom toggle button in the "Selected:" header now reads **⌕ Zoom**
 ## v1.3.2
 
 **Bug fix: docked palette could not be resized beyond 700 px tall.**
+
+> **Superseded by v1.6.0 — the explanation below is wrong.** `setMaximumSize`
+> was setting a drag *ceiling*, not arming a Qt resize handle, and the
+> `setMaximumSize(0, 0)` follow-up described here was later found to hard-lock
+> the palette to 0×0 rather than clear the cap. The shipped code was reverted
+> to a no-max state before v1.5.0; see the v1.6.0 entry for what actually
+> governs docked height. Kept for history.
 
 The v1.2.2 resize-affordance fix called `setMaximumSize(420, 700)`, which
 re-armed Fusion's Qt dock-widget resize handle as intended but also

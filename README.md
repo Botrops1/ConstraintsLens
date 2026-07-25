@@ -76,8 +76,11 @@ One toggle button sits on the right end of the name bar:
 | Button | What it does |
 |---|---|
 | **☀ / 🌙** (theme toggle) | Switches between dark (default) and light theme. Preference is saved in `localStorage` and restored when the palette is reopened. |
+| **⇕ 50% / 75% / Full** (height cycle) | Cycles the docked height between half, three-quarters and the full dock column. The choice is saved in `localStorage` and re-applied the next time the palette is docked. |
 
-> **Docking and resizing** are handled by Fusion itself. Drag the palette title bar to any edge of the Fusion window to snap-dock it (right / left / bottom / top), or drop it anywhere to float. Drag any palette edge to resize — works in both docked and floating modes. Fusion remembers the position and size across sessions.
+> **Docking** is handled by Fusion itself. Drag the palette title bar to any edge of the Fusion window to snap-dock it (right / left / bottom / top), or drop it anywhere to float. Fusion remembers the position across sessions.
+>
+> **Height when docked** is handled by ConstraintLens, because Fusion does not give a docked custom palette a bottom drag handle of its own. Use the **⇕** button for the three presets, or drag the grip strip along the very bottom edge of the panel for any height in between. Width, and both dimensions while floating, are Fusion's own drag handles as usual.
 
 ### Toolbar (buttons row)
 
@@ -245,7 +248,7 @@ The palette automatically re-scans and updates after every Fusion sketch command
 - **`AssemblyConstraint`** (Constrain Components, January 2026 preview API) is not supported.
 - **Palette data may be stale after minimizing/restoring** the palette window — click **Refresh** or perform any sketch edit to trigger a rescan.
 - **No live highlight on canvas hover** — hovering a row does not draw a highlight overlay on the canvas (only a click triggers selection).
-- **Height resize unavailable when docked alone to the right edge** — Fusion's Qt dock system does not give custom palettes a height-drag splitter when there is no other panel on the same edge to split with. To enable height resizing, dock another native panel (e.g. Sketch Palette) alongside ConstraintLens on the same edge — both panels then share a splitter. Width can always be adjusted.
+- **Docked height changes are applied on release, not live** — Fusion refuses size changes on a docked palette outright, so ConstraintLens has to bounce the palette through the floating state to apply one (see `_apply_palette_height` in `lib/lifecycle.py`). The **⇕** presets and the bottom grip therefore act on click / pointer-release rather than following the cursor, and a brief flicker on each change is expected.
 
 ---
 
