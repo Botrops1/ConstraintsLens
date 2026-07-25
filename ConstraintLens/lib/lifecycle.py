@@ -1033,6 +1033,9 @@ def _build_selection_info(app: adsk.core.Application) -> dict:
         labeler = None
 
     items: list[dict] = []
+    # Kept separately from `items` because a pair measurement needs both raw
+    # entities even when one of them has no per-entity properties to show.
+    selected: list = []
     try:
         sel = ui.activeSelections
         for i in range(sel.count):
@@ -1042,12 +1045,71 @@ def _build_selection_info(app: adsk.core.Application) -> dict:
                 continue
             if ent is None:
                 continue
+            selected.append(ent)
             item = _format_selection_entity(ent, units, labeler)
             if item is not None:
                 items.append(item)
     except Exception:
         pass
+
+    pair = _pair_measurements(app, selected, units, labeler)
+    if pair is not None:
+        items.insert(0, pair)
     return {"items": items}
+
+
+def _pair_measurements(app, entities: list, units, labeler) -> dict | None:
+    """Derived measurements for a two-entity selection (issue #8).
+
+    Uses Fusion's own MeasureManager rather than hand-rolled geometry, so the
+    numbers match what Fusion's Measure tool reports. Its docs state both
+    methods accept "any sketch entity", which covers every case in the issue
+    with one mechanism:
+
+      2 points      -> Distance   (minimum distance)
+      point + line  -> Distance   (Fusion handles point-to-segment properly)
+      2 circles     -> Distance   (gap between circumferences; for concentric
+                                   circles this is |r1 - r2|, the radial offset)
+      2 lines       -> Angle, and Distance too — for parallel lines the angle
+                       is 0 and the distance is the number you actually want
+
+    Returned as an ordinary selection item, so the existing footer renderer
+    needs no changes. Placed first in the list because when you select two
+    entities, the derived value is the thing you selected them to see.
+    """
+    if len(entities) != 2:
+        return None
+    a, b = entities
+
+    try:
+        measure = app.measureManager
+    except Exception:
+        return None
+    if measure is None:
+        return None
+
+    props: list[dict] = []
+    try:
+        result = measure.measureMinimumDistance(a, b)
+        if result is not None:
+            props.append({"key": "Distance", "value": _fmt_length(units, result.value)})
+    except Exception:
+        # Some entity combinations are not measurable; skip rather than error.
+        pass
+
+    # Angle only means something between two linear entities.
+    if isinstance(a, adsk.fusion.SketchLine) and isinstance(b, adsk.fusion.SketchLine):
+        try:
+            result = measure.measureAngle(a, b)
+            if result is not None:
+                props.append({"key": "Angle", "value": _fmt_angle(units, result.value)})
+        except Exception:
+            pass
+
+    if not props:
+        return None
+    label = f"{_selection_label(a, labeler)} ↔ {_selection_label(b, labeler)}"
+    return {"label": label, "props": props}
 
 
 def _format_selection_entity(entity, units, labeler) -> dict | None:
@@ -1130,9 +1192,14 @@ def _selection_props(entity, units) -> list[dict]:
             return props
         if isinstance(entity, adsk.fusion.SketchPoint):
             try:
+                # geometry is sketch-space, so Z is meaningful in a 3D sketch
+                # (issue #10b). Shown unconditionally rather than only when
+                # non-zero: in a 3D sketch a point can legitimately sit at Z=0,
+                # and hiding the field there would read as "no Z information".
                 g = entity.geometry
                 props.append({"key": "X", "value": _fmt_length(units, g.x)})
                 props.append({"key": "Y", "value": _fmt_length(units, g.y)})
+                props.append({"key": "Z", "value": _fmt_length(units, g.z)})
             except Exception:
                 pass
             return props
@@ -1146,13 +1213,26 @@ def _selection_props(entity, units) -> list[dict]:
         # Sketch dimensions all expose a .parameter with an expression.
         param = getattr(entity, "parameter", None)
         if param is not None:
+            got_any = False
+            # Identifier first (issue #10a): d526 is what you reference from
+            # other expressions, and it is the field that says *which*
+            # dimension this is when several read the same value.
+            try:
+                name = getattr(param, "name", None)
+                if name:
+                    props.append({"key": "Name", "value": str(name)})
+                    got_any = True
+            except Exception:
+                pass
             try:
                 expr = getattr(param, "expression", None)
                 if expr:
                     props.append({"key": "Value", "value": str(expr)})
-                    return props
+                    got_any = True
             except Exception:
                 pass
+            if got_any:
+                return props
         # B-Rep entities — match Fusion's own status overlay fields.
         if isinstance(entity, adsk.fusion.BRepEdge):
             try:

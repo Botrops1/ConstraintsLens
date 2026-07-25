@@ -6,6 +6,30 @@
 
 **Adjustable palette height while docked, live row counts while a tool is active, and a denser row layout.**
 
+### Measurements for a two-entity selection (#8)
+
+Select exactly two entities and the footer gains a first row labelled
+`Line 3 ↔ Arc 1` showing the derived measurement:
+
+- **Any two entities** — `Distance`, the minimum distance between them.
+- **Two lines** — `Angle` as well, since for parallel lines the angle is 0° and
+  the distance is the number that matters.
+- **Two circles** — the distance is the gap between circumferences, which for
+  concentric circles is exactly the radial offset.
+- **A point and a line** — distance to the line, correct for a finite segment.
+
+These use Fusion's own `MeasureManager` rather than separately computed geometry,
+so the figures agree with the built-in **Measure** tool. The derived row is
+placed first because it is what you selected two things to see.
+
+### Dimension identifier and point Z in the footer (#10)
+
+Selecting a dimension now shows its parameter **`Name`** (e.g. `d526`) next to the
+value — that is the identifier you reference from other expressions, and the only
+way to tell apart two dimensions that read the same. Selecting a sketch point now
+shows **`Z`** alongside X and Y; the coordinates are sketch-space, so Z carries
+real information in a 3D sketch.
+
 ### Auto-hide when leaving a sketch (#9)
 
 New **📌** toggle in the toolbar. Pinned is the default and keeps today's

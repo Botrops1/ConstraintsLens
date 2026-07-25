@@ -141,11 +141,25 @@ A footer at the bottom of the palette shows the name and key measured properties
 | Sketch circle | `Radius`, `Diameter` |
 | Sketch arc | `Radius`, `Sweep` angle |
 | Sketch ellipse | `Major`, `Minor` axis radii |
-| Sketch point | `X`, `Y` coordinates (sketch plane) |
-| Sketch dimension | current `Value` (expression) |
+| Sketch point | `X`, `Y`, `Z` coordinates (sketch space — Z is meaningful in a 3D sketch) |
+| Sketch dimension | `Name` (the parameter identifier, e.g. `d526`) and current `Value` (expression) |
 | B-Rep face | `Area` |
 | B-Rep body | `Volume`, `Area` |
 | Profile | `Area` |
+
+**Select exactly two entities** and a derived measurement appears as the first row
+of the footer, labelled `Line 3 ↔ Arc 1`:
+
+| Selection | Shown |
+|---|---|
+| Any two entities | `Distance` — the minimum distance between them |
+| Two lines | `Angle` as well as `Distance` (for parallel lines the angle is 0° and the distance is the useful figure) |
+| Two circles | `Distance` is the gap between circumferences; for concentric circles that equals the radial offset |
+| A point and a line | `Distance` measured to the line, handled correctly for a finite segment |
+
+These come from Fusion's own measurement engine (`MeasureManager`), so the values
+match what the built-in **Measure** tool reports rather than being calculated
+separately.
 
 ---
 
