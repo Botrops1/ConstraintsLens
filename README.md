@@ -44,21 +44,22 @@ Fills the long-standing UX gap of having to hunt tiny on-canvas glyphs to audit 
 │  [Clear] [Delete 0] [Show u/c] [Refresh] │  ← toolbar
 ├──────────────────────────────────────────┤
 │  SELECTED:                            ⌕  │  ← canvas selection (auto, hidden when empty)
-│   Line 3                                 │  ← entity chips (scrolls after 3 rows)
+│   Line 3                                 │  ← entity chips (scrolls after 2 rows)
 ├──────────────────────────────────────────┤
 │  [✕] Filter by label or type…            │  ← filter bar (✕ always clears filter)
 ├──────────────────────────────────────────┤
 │  ☑ GEOMETRIC CONSTRAINTS (6)          ▾  │  ← collapsible section + select-all checkbox
-│  [⊥] Perpendicular — Line 1 ⊥ Line 2  □ │
-│  [∥] Parallel — Line 3 ∥ Line 4       □ │
+│  [⊥] Perpendicular (Line 1)(Line 2)   □ │  ← type, then clickable entity chips
+│  [∥] Parallel (Line 3)(Line 4)        □ │
 │  …                                       │
 │  ☑ DIMENSIONS (3)                     ▾  │
-│  [◇] Linear: 40 mm   Line 1 → Line 3  □ │
+│  [◇] Linear (Line 1)(Line 3)          □ │
+│      40 mm                             ✎ │  ← editable expression
 │  …                                       │
 │  ENDPOINT JOINS (4)                   ▾  │
-│  [⊘] Endpoint join — Point 1 connects…  │
+│  [⊘] Endpoint join (Point 1)(Line 2)    │
 ├──────────────────────────────────────────┤
-│  PROPERTIES OF SELECTED:                 │  ← properties footer (scrolls after 3 rows)
+│  PROPERTIES OF SELECTED:                 │  ← properties footer (scrolls after 2 rows)
 │  Line 3   Length 42.5 mm                 │
 └──────────────────────────────────────────┘
 ```
@@ -88,14 +89,14 @@ One toggle button sits on the right end of the name bar:
 |---|---|
 | **Clear** | Deselects all checked rows (visible only when rows are checked). |
 | **Delete N** | Deletes all checked rows at once after a confirmation prompt (visible only when rows are checked). |
-| **Show underconstraint elements** | Calls Fusion's built-in Show Underconstrained command. Under-constrained entities are surfaced as clickable chips in the "Selected:" strip. Requires an active sketch edit context. |
+| **Show u/c** | Calls Fusion's built-in Show Underconstrained command. Under-constrained entities are surfaced as clickable chips in the "Selected:" strip. Requires an active sketch edit context. |
 | **Refresh** | Manually re-scans the active sketch. Usually not needed — the palette refreshes automatically after every sketch edit. |
 
 ### Selected section (canvas → palette, automatic)
 
 Appears automatically above the filter bar whenever you select anything on the canvas. No button click required — the palette listens to Fusion's `activeSelectionChanged` event.
 
-- Shows the selected entity or entities as clickable chips (e.g. `Line 3`, `Circle 1`). The strip scrolls after three rows of chips.
+- Shows the selected entity or entities as clickable chips (e.g. `Line 3`, `Circle 1`). The strip scrolls after two rows of chips.
 - Every row in the list that references any selected entity is highlighted with a blue left border and scrolled into view.
 - **When exactly one entity is selected**, the filter bar is automatically set to that entity's label, narrowing the list to every constraint involving it. Selecting multiple entities leaves the filter unchanged.
 - Clicking a chip sets the filter bar to that entity's label and selects it on the canvas.
@@ -106,7 +107,18 @@ The **⌕ Zoom** button at the right end of the "Selected:" header controls **au
 - **On:** each selection repositions the camera so the selected geometry fills the viewport (bounding-box fit with 1.5× padding). Useful for locating tiny construction lines.
 - Preference is persisted in `localStorage` and restored on palette reopen.
 
-When "Show underconstraint elements" is triggered, the section header changes to "Underconstrained:" and shows chips for all under-constrained entities instead of the generic canvas selection.
+When **Show u/c** is triggered, the section header changes to "Underconstrained:" and shows chips for all under-constrained entities instead of the generic canvas selection.
+
+### Row layout and the full description
+
+Each row shows the constraint **type** followed by its entities as clickable
+chips. The entity names are deliberately not repeated as prose next to the type —
+the chips already carry them, and they are the useful copy since clicking one
+filters the list and selects the entity on the canvas.
+
+**Hover the type name** to see the full description and the underlying Fusion API
+type, e.g. `Tangent — Line 3 ⌒ Arc 1` and `TangentConstraint`. Both remain
+searchable in the filter bar even though only the type is shown on the row.
 
 ### Filter bar
 

@@ -563,6 +563,19 @@
 
         const selectConstraintBtn = "";
 
+        // Density: show only the head of the label. dispatch.py builds every
+        // label as "{type} — {entity} {sym} {entity}", and those entities are
+        // already listed below as clickable chips, so the tail is the same
+        // information twice. The uppercased row.kind that used to sit on its own
+        // line between them was a third copy of the type name.
+        //
+        // Nothing is lost: the full label and the API type go in the tooltip,
+        // and matchesFilter() reads row.label / row.kind from the data rather
+        // than the DOM, so filtering by either still works.
+        const fullLabel = row.label || "";
+        const labelHead = fullLabel.split(" — ")[0];
+        const labelTitle = [fullLabel, row.kind || ""].filter(Boolean).join("\n");
+
         // Pseudo rows (implicit joins) can't be checked or deleted individually.
         const lockBtn = row.isPseudo
             ? `<span class="row-lock" title="Endpoint joins are shared sketch points and cannot be deleted">⊘</span>`
@@ -579,14 +592,13 @@
                 ${checkboxHTML}
                 <div class="row-glyph"${glyphAttrs}>${iconImg}</div>
                 <div class="row-body">
-                    <div class="row-label">${escape(row.label || "")}</div>
+                    <div class="row-head">
+                        <span class="row-label" title="${escape(labelTitle)}">${escape(labelHead)}</span>
+                        ${badges.join("")}
+                        ${chips ? `<div class="chips">${chips}</div>` : ""}
+                    </div>
                     ${exprHTML}
                     ${paramsHTML}
-                    <div class="row-meta">
-                        <span class="kind">${escape(row.kind || "")}</span>
-                        ${badges.join("")}
-                    </div>
-                    ${chips ? `<div class="chips">${chips}</div>` : ""}
                     ${errorsHTML}
                 </div>
                 <div class="row-actions">

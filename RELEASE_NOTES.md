@@ -4,7 +4,25 @@
 
 ## v1.6.0 (current)
 
-**Adjustable palette height while docked, and live row counts while a tool is active.**
+**Adjustable palette height while docked, live row counts while a tool is active, and a denser row layout.**
+
+### Denser rows — roughly 2.5× more visible at the same height
+
+A constraint row cost about 72 px because the same information appeared three
+times: the label read `Tangent — Line 3 ⌒ Arc 1`, the line under it read
+`TANGENTCONSTRAINT`, and the chips under that read `[Line 3] [Arc 1]`.
+
+Rows now show the type followed by the entity chips on one wrapping line, at
+about 29 px. In a 541 px dock column that is roughly 13 visible rows instead of
+5. Nothing is lost: hovering the type shows the full description and the API
+type, and the filter still matches label, type, and chip text because
+`matchesFilter()` reads them from the data rather than the DOM.
+
+Also in this pass: row padding 8 px → 5 px; the toolbar's "Show underconstrained
+elements" shortened to **Show u/c** so the toolbar stops wrapping to two lines at
+420 px wide; and the "Selected:" strip and properties footer caps lowered from
+68/76 px to 46/52 px, since together they were taking 144 px of the column
+whenever anything was selected.
 
 ### Live refresh while a constraint tool stays active
 

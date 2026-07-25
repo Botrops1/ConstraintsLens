@@ -9,6 +9,10 @@
 **Blocked by:** Nothing.
 
 ### Recent fixes (v1.0.1–v1.6.0)
+- v1.6.0: **Row density pass — ~72 px/row down to ~29 px, 5 visible rows to ~13.** The same information was rendered three times per row: `row.label` (`"Tangent — Line 3 ⌒ Arc 1"`), `row.kind` uppercased on its own `.row-meta` line (`TANGENTCONSTRAINT`), and the entity chips (`[Line 3] [Arc 1]`). `dispatch.py` builds every label as `"{type} — {entities}"`, so the label tail and the chips are the same thing, and `.kind` was a third copy of the type name.
+  - `rowHTML()` now renders `label.split(" — ")[0]` only, with the full label + `row.kind` in the `title` tooltip. `.row-meta` and `.kind` are gone; badges moved into a new `.row-head` flex line shared with the label and chips (`.chips` lost its `margin-top`).
+  - Safe because `matchesFilter()` ([app.js](ConstraintLens/palette/app.js)) reads `row.label` / `row.kind` / `row.entities` from the snapshot data, **not** the DOM — hiding them from display does not affect filtering.
+  - Also: `.row` padding 8→5 px; `#entity-readout` cap 68→46 px and `#footer-section` cap 76→52 px (together they were 144 px of a 541 px column); toolbar button "Show underconstraint elements" → "Show u/c" so `.toolbar { flex-wrap: wrap }` stops wrapping to two lines at 420 px.
 - v1.6.0: **Live row counts while a tool stays active.** `commandTerminated` was the only rescan trigger, and a resident sketch tool never fires it between applications. Measured 2026-07-25: three tangent constraints over 22 s produced **zero** events of any kind, then one `TERM cmd=ConstraintTangent` with the tally already at 9→12. Meanwhile plain canvas clicking fires `TERM cmd=SelectCommand` constantly — the silence is specific to being inside a tool.
   - `activeSelectionChanged` is **not** a usable trigger: during a command, entity picks go to that command's own selection input, not `ui.activeSelections`, so it stays silent exactly when needed. (Tried and reverted.)
   - A `setInterval` in the palette web view was tried and abandoned. Its failure reason was never established — the run logged no messages at all, equally consistent with the JS not having been deployed. Don't re-litigate it; the worker thread doesn't depend on the web view being loaded or focused.
@@ -53,7 +57,7 @@
 - Sketch status banner (name on own row, fully/under-constrained state with color).
 - M-1 defensive guard (MidPoint accessor) — both rows render; no crash.
 - Button in `SketchConstraintsPanel` (Sketch tab → Constraints panel).
-- "Show underconstraint elements" button — calls `executeTextCommand("Sketch.ShowUnderconstrained")`; result as toast.
+- "Show u/c" button (shortened from "Show underconstraint elements" in v1.6.0 so the toolbar stops wrapping) — calls `executeTextCommand("Sketch.ShowUnderconstrained")`; result as toast.
 - Filter bar — client-side by label/kind/entity chips; section headers show `(N of M)`.
 - Find button — canvas selection → palette highlight (blue border + scroll); entity readout strip.
 - Chip click → sets filter AND selects entity on canvas.

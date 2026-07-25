@@ -161,7 +161,7 @@ main::-webkit-scrollbar-thumb:hover { background: var(--fg-muted); }
     display: flex;
     align-items: flex-start;
     gap: 8px;
-    padding: 8px 10px;
+    padding: 5px 10px;
     background: var(--bg-row);
     border-bottom: 1px solid var(--border);
     cursor: pointer;
@@ -187,26 +187,21 @@ main::-webkit-scrollbar-thumb:hover { background: var(--fg-muted); }
     min-width: 0;
 }
 
+/* Label, badges and entity chips share one wrapping line. The old separate
+   .row-meta line (which showed row.kind uppercased) and the old standalone
+   .chips line each cost ~17 px per row and duplicated the label. */
+.row-head {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 3px 6px;
+}
+
 .row-label {
     font-size: 12px;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-}
-
-.row-meta {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    margin-top: 4px;
-    flex-wrap: wrap;
-}
-
-.kind {
-    font-size: 10px;
-    color: var(--fg-muted);
-    text-transform: uppercase;
-    letter-spacing: 0.03em;
 }
 
 .badge {
@@ -219,11 +214,12 @@ main::-webkit-scrollbar-thumb:hover { background: var(--fg-muted); }
 .badge.implicit { background: var(--badge-implicit-bg); color: var(--badge-implicit-color); }
 .badge.error { background: var(--badge-error-bg); color: var(--error); }
 
+/* No margin-top: this is now an inline item inside .row-head, not its own line.
+   Nested flex, so chips still wrap among themselves when they overflow. */
 .chips {
     display: flex;
     flex-wrap: wrap;
     gap: 4px;
-    margin-top: 4px;
 }
 
 .chip {
@@ -491,8 +487,10 @@ main::-webkit-scrollbar-thumb:hover { background: var(--fg-muted); }
     align-items: center;
     gap: 3px;
     flex-shrink: 0;
-    /* Item #25: cap chip strip at 3 chip rows then scroll */
-    max-height: 68px;
+    /* Item #25: cap chip strip, then scroll. Lowered from 68 px (3 rows) to
+       ~2 rows — with the footer below it, the two panes were taking 144 px of
+       a 541 px dock column whenever anything was selected. */
+    max-height: 46px;
     overflow-y: auto;
     scrollbar-width: thin;
     scrollbar-color: var(--border) transparent;
@@ -562,10 +560,11 @@ main::-webkit-scrollbar-thumb:hover { background: var(--fg-muted); }
 
 .hidden { display: none !important; }
 
-/* Item #28: cap "Properties of selected" at 3 entity rows then scroll */
+/* Item #28: cap "Properties of selected", then scroll. Lowered from 76 px
+   (3 rows) to ~2 rows, same reasoning as #entity-readout above. */
 #footer-section {
     flex-shrink: 0;
-    max-height: 76px;
+    max-height: 52px;
     overflow-y: auto;
     scrollbar-width: thin;
     scrollbar-color: var(--border) transparent;
