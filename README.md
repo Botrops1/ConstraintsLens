@@ -4,6 +4,10 @@ A Fusion 360 add-in that docks a panel listing every sketch constraint and dimen
 
 Fills the long-standing UX gap of having to hunt tiny on-canvas glyphs to audit and repair a sketch.
 
+<p align="center">
+  <img src="docs/images/palette.png" alt="ConstraintLens palette docked in Fusion 360, listing geometric constraints, dimensions and endpoint joins for the active sketch" width="426">
+</p>
+
 ---
 
 ## Requirements
