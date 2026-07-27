@@ -2,7 +2,7 @@
 
 ## Current Status
 
-**Working on:** v1.6.0 released.
+**Working on:** v1.6.0 — tagged, zip built, all features PC verified. Awaiting GitHub Release publication + closing issues #8/#9/#10.
 **Version:** 1.6.0 (manifest + commit must always match).
 **Next step:** Monitor for regressions. Watch the double-click-to-edit-sketch report specifically — it was traced to the 500 ms poll tick colliding with Windows' double-click threshold, gated to sketch-edit mode only, and is no longer reproducible; timing instrumentation found no other per-click stall (slowest event in the add-in is a 47 ms sketch activation, palette pushes are sub-millisecond). **If it recurs, suspect `_start_sketch_poll` first.**
 **Convention:** Every commit that bumps the version string must also update `ConstraintLens/ConstraintLens.manifest` `"version"` field so Fusion shows the correct version.
@@ -62,6 +62,8 @@
 - v1.0.9: `ConstraintHorizontalVertical` confirmed as correct command for H/V dark icons via probe script.
 
 ### What's verified working (all PC tests + session history)
+- **v1.6.0, PC verified 2026-07-27:** denser rows + one-line dimension rows; two-entity pair measurements (#8); dimension `Name` + point `Z` (#10); palette follows sketch-edit mode with auto-reopen (#9); docked height cycle + drag grip (tier 3 float/re-dock, returns to the same slot); live row counts while a constraint tool stays active.
+- **Still unconfirmed:** whether Fusion carries a manually-collapsed palette state through the auto hide/show. If it does, issue #9's "collapsed on reopen" request is satisfied without any API support — there is none to be had (see the v1.6.0 note below).
 - Add-in loads, palette docks, populates without Refresh click.
 - Geometric constraints list with click-to-select (row body) and select-constraint (icon glyph click).
 - Dimensions list (Angular, Linear, Diameter, etc.) with parameter expression in accent color.
