@@ -30,19 +30,26 @@ way to tell apart two dimensions that read the same. Selecting a sketch point no
 shows **`Z`** alongside X and Y; the coordinates are sketch-space, so Z carries
 real information in a 3D sketch.
 
-### Fixed: double-click to edit a sketch stopped working
+### Double-click to edit a sketch
 
-Double-clicking a sketch in the browser or the timeline stopped entering
-sketch-edit mode; only right-click → Edit Sketch worked. This was a regression
-introduced by the live-row-count poll earlier in this release.
+During development of this release, double-clicking a sketch in the browser or
+timeline could stop entering sketch-edit mode. The cause was the new
+live-row-count poll: it fired a custom event every 500 ms, processed on Fusion's
+main thread, and Windows' double-click threshold is also around 500 ms — so a
+tick landing between the two clicks broke double-click recognition.
 
-The poll fired a custom event every 500 ms, processed on Fusion's main thread —
-and Windows' double-click threshold is also around 500 ms, so a tick landing
-between the two clicks broke double-click recognition.
+The poll only exists to catch edits made by a resident sketch tool, so outside
+sketch-edit mode it has nothing to look for. It is now completely silent there.
 
-The poll exists only to catch edits made by a resident sketch tool, so outside
-sketch-edit mode it has nothing to look for. It is now completely silent there,
-which removes the interference and the wasted work at the same time.
+Timing instrumentation across every per-click code path afterwards found nothing
+that blocks: the slowest single event in the add-in is a 47 ms sketch activation,
+and pushing data to the palette costs well under a millisecond. The problem is
+not reproducible on the released build. If you do hit it, please open an issue —
+the poll thread is the first thing to suspect.
+
+Also fixed while measuring: entering a sketch scanned it twice, because the
+auto-show path and the refresh path each published independently. That was about
+30 ms of the 47 ms.
 
 ### Palette follows sketch-edit mode (#9)
 

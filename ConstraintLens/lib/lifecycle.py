@@ -726,79 +726,19 @@ def _on_palette_closed() -> None:
     _ever_opened = False
 
 
-# --- TEMPORARY timing diagnostic (double-click investigation) -----------
-#
-# Everything here is behind _DIAG_TIMING and comes out once the cause is known.
-#
-# What we are hunting: with the palette VISIBLE, every canvas/browser click runs
-# up to four sendInfoToHTML calls, and each one is synchronous — it executes JS
-# in the Qt web view (onData triggers a full renderSnapshot) while Fusion's main
-# thread waits. If that costs longer than Windows' ~500 ms double-click window,
-# the second click is delivered too late and double-click-to-edit-sketch breaks.
-#
-# The log records how long each step takes and when, so the gap between two
-# clicks can be compared against the work done in between.
-_DIAG_TIMING = True
-_diag_path = ""
-
-
-def _diag(tag: str, ms: float = -1.0, extra: str = "") -> None:
-    global _diag_path
-    if not _DIAG_TIMING:
-        return
-    try:
-        if not _diag_path:
-            import tempfile
-            _diag_path = os.path.join(tempfile.gettempdir(), "cl_click.log")
-        now = time.time()
-        stamp = time.strftime("%H:%M:%S", time.localtime(now)) + f".{int((now % 1) * 1000):03d}"
-        cost = f"{ms:8.1f}ms" if ms >= 0 else " " * 10
-        with open(_diag_path, "a", encoding="utf-8") as f:
-            f.write(f"{stamp} {cost} {tag:<26} {extra}\n")
-    except Exception:
-        pass
-
-
-def _timed(tag: str, fn, *args):
-    """Run fn(*args), logging how long it took."""
-    if not _DIAG_TIMING:
-        return fn(*args)
-    start = time.perf_counter()
-    try:
-        return fn(*args)
-    finally:
-        _diag(tag, (time.perf_counter() - start) * 1000.0)
-
-
-def _diag_context(app) -> str:
-    try:
-        visible = _palette is not None and _palette.isVisible
-    except Exception:
-        visible = "<err>"
-    try:
-        in_sketch = scanner.active_sketch(app) is not None
-    except Exception:
-        in_sketch = "<err>"
-    try:
-        cmd = app.userInterface.activeCommand or ""
-    except Exception:
-        cmd = "<err>"
-    return f"visible={visible} inSketch={in_sketch} cmd={cmd}"
-
-
 def _on_change() -> None:
     app = adsk.core.Application.get()
-    start = time.perf_counter()
-    _diag("commandTerminated:BEGIN", -1.0, _diag_context(app))
-    _timed("  update_poll_enabled", _update_poll_enabled, app)
-    _timed("  sync_visibility", _sync_palette_visibility, app)
-    _timed("  publish_active", _publish_active, app)
+    _update_poll_enabled(app)
+    # republish=False because _publish_active below covers it. Doing both
+    # scanned the sketch twice on every sketch entry — measured as ~30 ms of a
+    # 47 ms SketchActivate, the most expensive event in the whole add-in.
+    _sync_palette_visibility(app, republish=False)
+    _publish_active(app)
     # There is no palette dock/resize event in the API, so commandTerminated is
     # the cheapest existing hook for noticing that the user has dragged the
     # palette into or out of a dock column.
-    _timed("  note_dock_column", _note_dock_column)
-    _timed("  push_dock_info", _push_dock_info)
-    _diag("commandTerminated:END", (time.perf_counter() - start) * 1000.0)
+    _note_dock_column()
+    _push_dock_info()
 
 
 def _on_selection_changed() -> None:
@@ -809,12 +749,9 @@ def _on_selection_changed() -> None:
         return
     # No rescan here: selection changes cannot alter the constraint tally, and
     # the poll covers anything that can within one interval.
-    start = time.perf_counter()
-    _diag("selectionChanged:BEGIN", -1.0, _diag_context(app))
-    _timed("  push_selection_info", _push_selection_info, app)
-    _timed("  push_selection_tokens", _push_selection_tokens, app)
-    _timed("  zoom_to_selection", _zoom_to_active_selection, app)
-    _diag("selectionChanged:END", (time.perf_counter() - start) * 1000.0)
+    _push_selection_info(app)
+    _push_selection_tokens(app)
+    _zoom_to_active_selection(app)
 
 
 # --- Sketch poll --------------------------------------------------------
@@ -925,23 +862,17 @@ def _on_poll_tick() -> None:
         app = adsk.core.Application.get()
         # Lets the poll switch itself off the moment the sketch closes, without
         # waiting for a commandTerminated that may not come.
-        start = time.perf_counter()
         _update_poll_enabled(app)
         # Before the rescan: _republish_if_sketch_changed() bails out on a
         # hidden palette, so auto-show has to get its chance first.
         _sync_palette_visibility(app)
         _republish_if_sketch_changed(app)
-        elapsed = (time.perf_counter() - start) * 1000.0
-        # Only logged when it actually did work — an idle tick is a fraction of
-        # a millisecond and would bury the interesting lines.
-        if elapsed >= 1.0:
-            _diag("pollTick", elapsed, _diag_context(app))
     finally:
         # In a finally so a raising tick cannot wedge the poll permanently.
         _poll_in_flight.clear()
 
 
-def _sync_palette_visibility(app: adsk.core.Application) -> None:
+def _sync_palette_visibility(app: adsk.core.Application, republish: bool = True) -> None:
     """Track sketch-edit mode: hidden outside it, restored on re-entry.
 
     Restoring is gated on _ever_opened so the palette only reappears in
@@ -975,10 +906,12 @@ def _sync_palette_visibility(app: adsk.core.Application) -> None:
         elif _ever_opened and not _palette.isVisible:
             _palette.isVisible = True
             # Data went stale while hidden: messaging.send() drops everything
-            # for an invisible palette (landmine M-8).
-            _publish_active(app)
-            _push_selection_info(app)
-            _push_selection_tokens(app)
+            # for an invisible palette (landmine M-8). Skipped when the caller
+            # is about to publish anyway.
+            if republish:
+                _publish_active(app)
+                _push_selection_info(app)
+                _push_selection_tokens(app)
     except Exception:
         pass
 
@@ -1430,7 +1363,7 @@ def _publish_active(app: adsk.core.Application) -> None:
         _push_selection_info(app)
         return
     try:
-        payload = _timed("    build_payload", scanner.build_payload, sketch)
+        payload = scanner.build_payload(sketch)
     except Exception as exc:
         messaging.send(_palette, messaging.PY_ACTION_ERROR, {
             "message": f"Scan failed: {exc}",
@@ -1440,10 +1373,7 @@ def _publish_active(app: adsk.core.Application) -> None:
     # Recorded here, the one place a scan is published, so the tally cannot
     # drift out of step with what the palette is actually showing.
     _last_sketch_counts = _sketch_counts(sketch)
-    # sendInfoToHTML is synchronous: it runs JS in the web view (onData does a
-    # full renderSnapshot) while Fusion's main thread waits. Timed separately
-    # from the scan above so the log says which half is expensive.
-    _timed("    send:data", messaging.send, _palette, messaging.PY_ACTION_DATA, payload)
+    messaging.send(_palette, messaging.PY_ACTION_DATA, payload)
     _push_selection_info(app)
 
 

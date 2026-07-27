@@ -2,13 +2,14 @@
 
 ## Current Status
 
-**Working on:** v1.6.0 — docked-palette height control + live row counts. Both PC verified.
+**Working on:** v1.6.0 released.
 **Version:** 1.6.0 (manifest + commit must always match).
-**Next step:** Commit and release. Height controls confirmed working (tier 3 float/re-dock, same slot — no `setPosition` restore needed). Live counts confirmed updating mid-command.
+**Next step:** Monitor for regressions. Watch the double-click-to-edit-sketch report specifically — it was traced to the 500 ms poll tick colliding with Windows' double-click threshold, gated to sketch-edit mode only, and is no longer reproducible; timing instrumentation found no other per-click stall (slowest event in the add-in is a 47 ms sketch activation, palette pushes are sub-millisecond). **If it recurs, suspect `_start_sketch_poll` first.**
 **Convention:** Every commit that bumps the version string must also update `ConstraintLens/ConstraintLens.manifest` `"version"` field so Fusion shows the correct version.
 **Blocked by:** Nothing.
 
 ### Recent fixes (v1.0.1–v1.6.0)
+- v1.6.0: **Per-click cost measured, and the double scan on sketch entry removed.** A timing pass over every per-click path (log format in git history at `7ab6890`, since reverted) showed **nothing blocks**: `sendInfoToHTML` is 0.2–0.7 ms, `build_payload` 12–14 ms, worst single event 47 ms on `SketchActivate`. The "palette pushes block the main thread" theory was wrong — don't revisit it. It did reveal that entering a sketch scanned twice (`_sync_palette_visibility` republished, then `_on_change` republished again), ~30 ms of that 47 ms; `_sync_palette_visibility(app, republish=False)` from `_on_change` fixes it.
 - v1.6.0: **Regression fix — the sketch poll broke double-click-to-edit-sketch.** Double-clicking a sketch in the browser or timeline stopped entering edit mode. The 500 ms `fireCustomEvent` tick is processed on the main thread and Windows' double-click threshold is also ~500 ms, so a tick landing between the clicks broke recognition. Fixed by `_poll_enabled`: the poll only fires while a sketch is being edited, which is the only time it has anything to find. `commandTerminated` flips it (`SketchActivate` / `SketchStop`, both seen in the probe log) and the tick re-checks so it can switch itself off. **If any double-click misbehaves again, suspect this thread first.**
 - v1.6.0: **Palette visibility follows sketch-edit mode; pin toggle removed.** `_sync_palette_visibility()` hides on sketch exit unconditionally and restores on the next sketch when `_ever_opened` is set (i.e. the user opened it at least once this session). `_on_palette_closed` clears `_ever_opened` — closing with ✕ is the opt-out — guarded by `_suppress_closed_event` so our own programmatic hide can't clear it if a build raises `closed` on that too.
   - **Fusion's native palette collapse arrows are NOT in the API.** Verified against the stubs: the complete `Palette` surface is `isVisible`, `dockingState`, `dockingOption`, `width`/`height`, `left`/`top`, `setSize`, `setMinimumSize`, `setMaximumSize`, `setPosition`, `snapTo`. No collapse/expand/minimize member exists anywhere in `adsk.core`. Don't re-search for it. Collapsed state is preserved only because Fusion remembers it across hide/show.
