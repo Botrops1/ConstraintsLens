@@ -2,7 +2,32 @@
 
 ---
 
-## v1.6.0 (current)
+## v1.6.1 (current)
+
+**Readable numbers.**
+
+Values were shown at full internal precision — `5.1290366508 mm` on a dimension
+row, `RADIUS 2.7873295 mm` in the footer. They now follow the precision set in
+your document preferences, matching what Fusion shows everywhere else.
+
+The cause was `UnitsManager.formatInternalValue`, which formats at full
+precision and is not part of the documented API. Everything now uses
+`formatValue`, whose default `precision = -1` means "use the user's preference".
+
+Dimension rows get a further refinement. A dimension created by dragging stores
+its full-precision value *as its expression*, so there was nothing to round —
+the long number was the honest answer. Those now show the formatted value, while
+genuine formulas like `d5*2` are still shown verbatim, because knowing a
+dimension is driven matters more than its current number. Editing is unaffected:
+the inline editor is always seeded with the real underlying expression.
+
+Also: selecting a dimension showed `SketchDiameterDimension` in the footer, the
+raw API type name. It now reads `Diameter d56` — friendly kind plus the
+parameter identifier.
+
+---
+
+## v1.6.0
 
 **Adjustable palette height while docked, live row counts while a tool is active, and a denser row layout.**
 

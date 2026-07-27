@@ -3,12 +3,43 @@
 # Walks the active sketch and produces the JSON payload defined in
 # SPEC.md section 7. Never touches the palette directly.
 
+import re
+
 import adsk.core
 import adsk.fusion
 
 from . import dispatch
 from .labels import EntityLabeler
 from .tokens import token_of
+
+
+# A bare number with an optional unit suffix: "5", "5.13 mm", "-1.2e3", "45 deg".
+# Anything else — "d5*2", "width/2", "10 mm + 2 mm" — is a formula.
+_PLAIN_NUMBER = re.compile(r"^\s*[-+]?(?:\d+\.?\d*|\.\d+)(?:[eE][-+]?\d+)?\s*[a-zA-Z°]*\s*$")
+
+
+def dimension_display(param, expr: str, units) -> str:
+    """The string shown for a dimension's value.
+
+    A dimension created by dragging stores its full-precision value as the
+    expression — "5.1290366508 mm" — which is unreadable in a narrow palette.
+    For those, format the numeric value at the document's precision instead.
+
+    Real formulas are passed through untouched: seeing that a dimension is
+    driven by "d5*2" is the useful information, and formatting it away would
+    hide it. The raw expression is still what seeds the inline editor, so
+    nothing is lost either way.
+    """
+    if not expr or units is None:
+        return expr
+    if not _PLAIN_NUMBER.match(expr):
+        return expr
+    try:
+        # param.unit keeps angular dimensions in degrees rather than being
+        # formatted as a length.
+        return units.formatValue(param.value, param.unit)
+    except Exception:
+        return expr
 
 
 def active_sketch(app: adsk.core.Application) -> adsk.fusion.Sketch | None:
@@ -166,8 +197,18 @@ def _read_model_params(c, attr_pairs: list[tuple[str, str]]) -> list[dict]:
     return result
 
 
+def _units_manager():
+    """UnitsManager for the active design, or None. Used only for formatting."""
+    try:
+        product = adsk.core.Application.get().activeProduct
+        return product.unitsManager if product else None
+    except Exception:
+        return None
+
+
 def _scan_dimensions(sketch: adsk.fusion.Sketch, lab: EntityLabeler) -> list[dict]:
     rows: list[dict] = []
+    units = _units_manager()
     dims = sketch.sketchDimensions
     for i in range(dims.count):
         d = dims.item(i)
@@ -181,6 +222,10 @@ def _scan_dimensions(sketch: adsk.fusion.Sketch, lab: EntityLabeler) -> list[dic
         except Exception:
             expr = ""
         try:
+            display = dimension_display(d.parameter, expr, units)
+        except Exception:
+            display = expr
+        try:
             is_deletable = bool(d.isDeletable)
         except Exception:
             is_deletable = True
@@ -192,7 +237,9 @@ def _scan_dimensions(sketch: adsk.fusion.Sketch, lab: EntityLabeler) -> list[dic
             "label": result.label,
             "glyph": "dimension.svg",
             "entities": result.entities,
+            # Raw expression seeds the inline editor; display is what is shown.
             "parameterExpression": expr,
+            "parameterDisplay": display,
             "isDeletable": is_deletable,
             "isPseudo": False,
             "isDimension": True,

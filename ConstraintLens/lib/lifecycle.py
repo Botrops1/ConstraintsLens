@@ -9,7 +9,7 @@ import traceback
 import adsk.core
 import adsk.fusion
 
-from . import actions, events, labels, messaging, scanner, selection, tokens
+from . import actions, dispatch, events, labels, messaging, scanner, selection, tokens
 
 
 # Command and palette ids — must be unique across all add-ins.
@@ -1189,6 +1189,17 @@ def _selection_label(entity, labeler) -> str:
                 return lbl
         except Exception:
             pass
+    # Sketch dimensions have no entity label, and the raw type name leaked
+    # through as e.g. "SketchDiameterDimension". Use the friendly kind name
+    # plus the parameter identifier: "Diameter d56".
+    param = getattr(entity, "parameter", None)
+    if param is not None:
+        try:
+            kind = dispatch.dimension_kind(entity.objectType)
+            name = getattr(param, "name", "") or ""
+            return f"{kind} {name}".strip()
+        except Exception:
+            pass
     return _raw_type_name(entity)
 
 
@@ -1267,7 +1278,10 @@ def _selection_props(entity, units) -> list[dict]:
             try:
                 expr = getattr(param, "expression", None)
                 if expr:
-                    props.append({"key": "Value", "value": str(expr)})
+                    # Same treatment as the dimension rows: format plain
+                    # numbers at document precision, pass formulas through.
+                    shown = scanner.dimension_display(param, str(expr), units)
+                    props.append({"key": "Value", "value": shown})
                     got_any = True
             except Exception:
                 pass
@@ -1299,10 +1313,17 @@ def _selection_props(entity, units) -> list[dict]:
     return props
 
 
+# formatValue, not formatInternalValue.
+#
+# formatInternalValue is not in the API stubs and formats at full precision —
+# it is what produced readouts like "RADIUS 2.7873295 mm". formatValue takes the
+# same internal-unit input (cm for length, radians for angle) but defaults to
+# precision=-1, meaning "use the precision from the user's preferences", so the
+# palette now matches the numbers Fusion shows everywhere else.
 def _fmt_length(units, value_cm) -> str:
     if units is not None:
         try:
-            return units.formatInternalValue(value_cm, units.defaultLengthUnits, True)
+            return units.formatValue(value_cm, units.defaultLengthUnits)
         except Exception:
             pass
     return f"{value_cm:.4g} cm"
@@ -1311,7 +1332,7 @@ def _fmt_length(units, value_cm) -> str:
 def _fmt_angle(units, value_rad) -> str:
     if units is not None:
         try:
-            return units.formatInternalValue(value_rad, "deg", True)
+            return units.formatValue(value_rad, "deg")
         except Exception:
             pass
     # Fusion stores angles in radians; convert for the manual fallback.

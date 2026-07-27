@@ -553,10 +553,14 @@
         //   [icon] Linear  [Line 1] [Line 3]  = 30 mm ✎
         // The .dim-expr-wrap / .dim-expr structure is load-bearing — the edit
         // handler finds the value via closest(".dim-expr-wrap").
+        // Shows parameterDisplay (formatted at document precision for plain
+        // numbers, formulas verbatim) but carries the raw expression in
+        // data-expr, which is what the inline editor is seeded with.
         const exprHTML = row.parameterExpression
             ? `<div class="dim-expr-wrap inline">
                 <span class="dim-expr-eq">=</span>
-                <span class="dim-expr">${escape(row.parameterExpression)}</span>
+                <span class="dim-expr" data-expr="${escape(row.parameterExpression)}"
+                      title="${escape(row.parameterExpression)}">${escape(row.parameterDisplay || row.parameterExpression)}</span>
                 <button class="btn-edit" data-action="editExpr" data-token="${escape(row.token || "")}"
                         title="Edit expression (Enter to commit, Esc to cancel)">✎</button>
                </div>`
@@ -744,7 +748,10 @@
         const span = wrap.querySelector(".dim-expr");
         if (!span) return;
         const token = editBtn.getAttribute("data-token") || "";
-        const currentVal = span.textContent || "";
+        // data-expr, not textContent: the visible text may be the formatted
+        // value ("5.13 mm") while the thing being edited is the underlying
+        // expression ("5.1290366508 mm", or a formula like "d5*2").
+        const currentVal = span.getAttribute("data-expr") || span.textContent || "";
         // editParam buttons use editParameter action; editExpr use editDimension.
         const pyAction = editBtn.getAttribute("data-action") === "editParam"
             ? JS_TO_PY.editParameter : JS_TO_PY.editDimension;
