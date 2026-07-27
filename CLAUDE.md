@@ -2,9 +2,9 @@
 
 ## Current Status
 
-**Working on:** v1.6.1 — number formatting fixes, awaiting PC test. v1.6.0 is released and issues #8/#9/#10 are closed.
+**Working on:** Maintenance / community issues. v1.6.0 and v1.6.1 both released; issues #8/#9/#10 closed.
 **Version:** 1.6.1 (manifest + commit must always match).
-**Next step:** Monitor for regressions. Watch the double-click-to-edit-sketch report specifically — it was traced to the 500 ms poll tick colliding with Windows' double-click threshold, gated to sketch-edit mode only, and is no longer reproducible; timing instrumentation found no other per-click stall (slowest event in the add-in is a 47 ms sketch activation, palette pushes are sub-millisecond). **If it recurs, suspect `_start_sketch_poll` first.**
+**Next step:** Monitor for regressions and new issues. Watch the double-click-to-edit-sketch report specifically — it was traced to the 500 ms poll tick colliding with Windows' double-click threshold, gated to sketch-edit mode only, and is no longer reproducible; timing instrumentation found no other per-click stall (slowest event in the add-in is a 47 ms sketch activation, palette pushes are sub-millisecond). **If it recurs, suspect `_start_sketch_poll` first.**
 **Convention:** Every commit that bumps the version string must also update `ConstraintLens/ConstraintLens.manifest` `"version"` field so Fusion shows the correct version.
 **Blocked by:** Nothing.
 
