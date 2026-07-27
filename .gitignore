@@ -1,6 +1,12 @@
 # Release artifacts — built locally, uploaded to GitHub Releases
 *.zip
 
+# Release paste-text staged in the repo root next to the zip, so the release
+# body and the issue replies are to hand when filling in the GitHub forms.
+# Throwaway: the canonical copy of the notes is RELEASE_NOTES.md.
+RELEASE_BODY_*.md
+ISSUE_REPLIES_*.md
+
 # Python
 __pycache__/
 *.pyc
