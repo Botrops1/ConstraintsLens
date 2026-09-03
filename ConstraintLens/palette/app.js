@@ -163,6 +163,11 @@
         themeToggle: document.getElementById("theme-toggle"),
         selectionFooter: document.getElementById("selection-footer"),
         footerSection: document.getElementById("footer-section"),
+        footerDivider: document.getElementById("footer-divider"),
+        helpToggle: document.getElementById("help-toggle"),
+        helpOverlay: document.getElementById("help-overlay"),
+        helpClose: document.getElementById("help-close"),
+        selectedDivider: document.getElementById("selected-divider"),
         heightCycle: document.getElementById("height-cycle"),
         resizeGrip: document.getElementById("resize-grip"),
         resizeGripReadout: document.getElementById("resize-grip-readout"),
@@ -264,6 +269,7 @@
         const items = (payload && payload.items) || [];
         if (items.length === 0) {
             els.footerSection.className = "hidden";
+            setDividerVisible(els.footerDivider, false);
             els.selectionFooter.innerHTML = "";
             return;
         }
@@ -277,6 +283,7 @@
             return `<div class="sel-item">${labelHTML}${sep}${props}</div>`;
         }).join("");
         els.footerSection.className = "";
+        setDividerVisible(els.footerDivider, true);
         els.selectionFooter.innerHTML = html;
     }
 
@@ -1014,6 +1021,121 @@
 
         els.resizeGrip.addEventListener("pointerup", finish);
         els.resizeGrip.addEventListener("pointercancel", finish);
+    })();
+
+    // --- Help sheet -----------------------------------------------------
+    //
+    // Most of the palette's behaviour is an unlabelled click target — row body
+    // vs. row icon, chip, pencil, grip strip — so it is only discoverable by
+    // accident or by reading the README. The ? button lists it in place.
+
+    (function () {
+        // Guard a partially-copied deploy, as the pane dividers below do.
+        if (!els.helpToggle || !els.helpOverlay) return;
+
+        function setHelpOpen(open) {
+            els.helpOverlay.className = open ? "" : "hidden";
+        }
+
+        els.helpToggle.addEventListener("click", () => {
+            setHelpOpen(els.helpOverlay.className === "hidden");
+        });
+        if (els.helpClose) els.helpClose.addEventListener("click", () => setHelpOpen(false));
+
+        // Click the backdrop — but not the sheet itself — to dismiss.
+        els.helpOverlay.addEventListener("click", (e) => {
+            if (e.target === els.helpOverlay) setHelpOpen(false);
+        });
+
+        document.addEventListener("keydown", (e) => {
+            if (e.key === "Escape" && els.helpOverlay.className !== "hidden") {
+                setHelpOpen(false);
+            }
+        });
+    })();
+
+    // --- Resizable "Selected:" / "Properties of selected:" panes (#12) ---
+    //
+    // Both panes are capped and scrollable, and the v1.6.0 density pass cut
+    // the caps to about two rows each; issue #12 reports the footer being too
+    // short to read the properties of several selected entities at once.
+    // These dividers set the cap by drag. They resize a div, not the palette,
+    // so — unlike the docked-height grip above — the height applies live per
+    // pointermove and only the persist waits for release.
+
+    const PANE_MIN_PX = 24;
+
+    // #footer-divider is a sibling of #footer-section rather than a child of
+    // it (a child would scroll with the properties), so it has to be shown and
+    // hidden alongside it. #selected-divider needs no equivalent: it sits
+    // inside #selected-section and inherits that section's visibility.
+    function setDividerVisible(divider, visible) {
+        if (divider) divider.className = visible ? "pane-divider" : "pane-divider hidden";
+    }
+
+    (function () {
+        const PANES = [
+            { divider: els.selectedDivider, pane: els.entityReadout,
+              key: "cl-selected-h", fallback: 46, grow: 1 },
+            { divider: els.footerDivider, pane: els.footerSection,
+              key: "cl-footer-h", fallback: 72, grow: -1 },
+        ];
+
+        // Leave room for the constraint list itself: neither pane may take
+        // more than 60% of the view, however far the pointer travels.
+        function clamp(px) {
+            const max = Math.max(PANE_MIN_PX, Math.round(window.innerHeight * 0.6));
+            return Math.max(PANE_MIN_PX, Math.min(Math.round(px), max));
+        }
+
+        for (const spec of PANES) {
+            // Guard a partially-copied deploy, as heightControlsPresent does
+            // for the height controls: an unguarded listener on a missing
+            // element throws at load and takes the whole palette down.
+            if (!spec.divider || !spec.pane) continue;
+
+            const saved = parseInt(localStorage.getItem(spec.key), 10);
+            let height = Number.isFinite(saved) ? clamp(saved) : spec.fallback;
+            spec.pane.style.maxHeight = `${height}px`;
+
+            let dragging = false;
+            let startY = 0;
+            let startHeight = 0;
+
+            spec.divider.addEventListener("pointerdown", (e) => {
+                dragging = true;
+                startY = e.clientY;
+                startHeight = height;
+                spec.divider.classList.add("dragging");
+                spec.divider.setPointerCapture(e.pointerId);
+                e.preventDefault();
+            });
+
+            spec.divider.addEventListener("pointermove", (e) => {
+                if (!dragging) return;
+                // grow is +1 when the divider sits below its pane (drag down
+                // to enlarge) and -1 when it sits above it (drag up).
+                height = clamp(startHeight + spec.grow * (e.clientY - startY));
+                spec.pane.style.maxHeight = `${height}px`;
+            });
+
+            function finish(e) {
+                if (!dragging) return;
+                dragging = false;
+                spec.divider.classList.remove("dragging");
+                try { spec.divider.releasePointerCapture(e.pointerId); } catch (_) {}
+                localStorage.setItem(spec.key, String(height));
+            }
+
+            spec.divider.addEventListener("pointerup", finish);
+            spec.divider.addEventListener("pointercancel", finish);
+
+            spec.divider.addEventListener("dblclick", () => {
+                height = spec.fallback;
+                spec.pane.style.maxHeight = `${height}px`;
+                localStorage.setItem(spec.key, String(height));
+            });
+        }
     })();
 
     // Note: sketch-change polling deliberately does NOT live here. Fusion fires

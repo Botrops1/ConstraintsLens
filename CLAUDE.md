@@ -2,13 +2,22 @@
 
 ## Current Status
 
-**Working on:** Maintenance / community issues. v1.6.0 and v1.6.1 both released; issues #8/#9/#10 closed.
-**Version:** 1.6.1 (manifest + commit must always match).
+**Working on:** Maintenance / community issues. v1.6.0–v1.6.2 released; issues #8/#9/#10 closed and #12 PC-verified in v1.6.2. v1.6.3 adds discoverability polish on top (high-contrast grips, `?` help sheet) — **not yet PC-verified**. Issue #11 (palette opens on the primary monitor in a multi-monitor setup) is still open; the agreed plan is to dock on first creation rather than call `setPosition`, whose coordinate frame is unverified.
+**Version:** 1.6.3 (manifest + commit must always match).
 **Next step:** Monitor for regressions and new issues. Watch the double-click-to-edit-sketch report specifically — it was traced to the 500 ms poll tick colliding with Windows' double-click threshold, gated to sketch-edit mode only, and is no longer reproducible; timing instrumentation found no other per-click stall (slowest event in the add-in is a 47 ms sketch activation, palette pushes are sub-millisecond). **If it recurs, suspect `_start_sketch_poll` first.**
 **Convention:** Every commit that bumps the version string must also update `ConstraintLens/ConstraintLens.manifest` `"version"` field so Fusion shows the correct version.
 **Blocked by:** Nothing.
 
-### Recent fixes (v1.0.1–v1.6.1)
+### Recent fixes (v1.0.1–v1.6.3)
+- v1.6.3: **Discoverability pass — grip contrast + `?` help sheet.** After #12 shipped, the report was that the drag strips can't be found without hovering over them.
+  - Both grips (`.pane-divider` and `#resize-grip`) were drawing their handle bar in `var(--border)` — the hairline token, ~#404040 on a #333 strip. New `--grip` / `--grip-bg` tokens (per theme) drive the bar and the strip background instead; bar 34→40 px wide, `.pane-divider` 7→9 px tall with hairline borders. **Don't put a control's affordance on `--border`** — it is sized for dividers, not for things you click.
+  - `?` button on the name bar opens `#help-overlay`, a static sheet listing every unlabelled click target (row body vs. row icon, chip, pencil, grip). Content is hardcoded in index.html — it describes the UI, so there is nothing to template and nothing to escape.
+  - The sheet is `align-items: flex-end` + `max-height: calc(100% - 22px)` so a backdrop strip always covers the name bar: clicking `?` a second time then lands on the backdrop and closes it, which is what the button invites. Dismiss also via Esc, ✕, or backdrop. Verified all four paths.
+- v1.6.2: **Issue #12 — the "Properties of selected" cap is now draggable.** PC-verified 2026-09-03.  The v1.6.0 density pass capped `#footer-section` at 52 px (~2 rows) and `#entity-readout` at 46 px; a user reported the footer being too short to read the properties of several selected entities. Both panes get a `.pane-divider` drag strip; default footer cap raised 52 → 72 px.
+  - Entirely client-side — the divider resizes a `<div>`, not the palette, so none of the docked-height machinery applies: no float/re-dock round trip, and the height applies live per `pointermove` instead of on release. Persisted per pane in `localStorage` (`cl-footer-h`, `cl-selected-h`); double-click resets to the default.
+  - Clamped to 24 px … 60% of `window.innerHeight`, so neither pane can crowd out the constraint list.
+  - `#footer-divider` is a **sibling** of `#footer-section`, not a child — a child would scroll away with the properties — so it must be shown and hidden alongside it. `onSelectionInfo` assigns `className` wholesale, hence `setDividerVisible()` restates the base class. `#selected-divider` needs no such handling: it lives inside `#selected-section` and inherits its visibility.
+  - The CSS `max-height` values are now only the pre-script defaults; app.js overwrites both inline at load. Change them in **both** places or the remembered size wins silently.
 - v1.6.1: **Number formatting — `formatValue`, never `formatInternalValue`.** Readouts showed full internal precision (`RADIUS 2.7873295 mm`, `= 5.1290366508 mm`). `UnitsManager.formatInternalValue` **is not in the API stubs** and formats at full precision; `formatValue(value, units, precision=-1, …)` takes the same internal-unit input (cm / radians) and `-1` means "use the user's preference". `_fmt_length` / `_fmt_angle` switched over. **Don't reintroduce `formatInternalValue`.**
   - Dimension rows: a dragged dimension stores its full-precision value *as the expression*, so rounding the display was not enough — `scanner.dimension_display()` formats plain numbers via `param.value` + `param.unit` (`unit` keeps angular dims in degrees) and passes real formulas like `d5*2` through verbatim. Rows carry both `parameterExpression` (raw, seeds the editor via `data-expr`) and `parameterDisplay` (shown). The JS editor reads `data-expr`, **not** `textContent`, or it would try to commit the formatted string.
   - `_selection_label` fell through to the raw type name for dimensions (`SketchDiameterDimension`); now `dispatch.dimension_kind()` + `param.name` → `Diameter d56`. Required adding `dispatch` to lifecycle's imports.
