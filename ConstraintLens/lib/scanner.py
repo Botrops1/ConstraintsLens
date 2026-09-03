@@ -8,7 +8,7 @@ import re
 import adsk.core
 import adsk.fusion
 
-from . import dispatch
+from . import dispatch, labels
 from .labels import EntityLabeler
 from .tokens import token_of
 
@@ -50,14 +50,29 @@ def active_sketch(app: adsk.core.Application) -> adsk.fusion.Sketch | None:
 
 
 _PATTERN_KINDS = frozenset({"CircularPatternConstraint", "RectangularPatternConstraint", "PolygonConstraint"})
-# OffsetConstraint is already shown as a Dimension (SketchOffsetCurvesDimension).
+# OffsetConstraint is already shown as a Dimension (SketchOffsetCurvesDimension),
+# so it is scanned into neither section. dispatch.patch_offset_label() is the
+# piece that fills in its label's distance placeholder and is unused for as long
+# as that stays true — drop "OffsetConstraint" from this set to bring both back.
 # Pattern constraints get their own palette section.
 _GEOMETRIC_EXCLUDE = _PATTERN_KINDS | {"OffsetConstraint"}
 
 
 def build_payload(sketch: adsk.fusion.Sketch) -> dict:
     """Build the full data payload for the palette."""
-    lab = EntityLabeler(sketch)
+    lab = labels.labeler_for(sketch)
+
+    name = ""
+    try:
+        name = sketch.name or ""
+    except Exception:
+        pass
+
+    fully_constrained = False
+    try:
+        fully_constrained = bool(sketch.isFullyConstrained)
+    except Exception:
+        pass
 
     component_name = ""
     try:
@@ -77,81 +92,90 @@ def build_payload(sketch: adsk.fusion.Sketch) -> dict:
     except Exception:
         pass
 
+    geometric, patterns = _scan_constraint_rows(sketch, lab)
+
     return {
         "sketch": {
-            "name": sketch.name,
+            "name": name,
             "componentName": component_name,
-            "isFullyConstrained": bool(sketch.isFullyConstrained),
+            "isFullyConstrained": fully_constrained,
             "healthState": health_state,
             "errorOrWarningMessage": error_msg,
         },
-        "constraints": _scan_constraints(sketch, lab),
+        "constraints": geometric,
         "dimensions": _scan_dimensions(sketch, lab),
-        "patterns": _scan_patterns(sketch, lab),
+        "patterns": patterns,
         "implicitJoins": _scan_implicit_joins(sketch, lab),
     }
 
 
-def _scan_constraints(sketch: adsk.fusion.Sketch, lab: EntityLabeler) -> list[dict]:
-    """User-managed geometric constraints — offset and pattern constraints excluded."""
-    return _build_constraint_rows(sketch, lab, exclude=_GEOMETRIC_EXCLUDE)
+def _scan_constraint_rows(
+    sketch: adsk.fusion.Sketch, lab: EntityLabeler
+) -> tuple[list[dict], list[dict]]:
+    """One pass over geometricConstraints, split into the two sections that
+    show them: (geometric, patterns).
 
-
-def _scan_patterns(sketch: adsk.fusion.Sketch, lab: EntityLabeler) -> list[dict]:
-    """Pattern constraints (CircularPattern, RectangularPattern) as a separate section."""
-    return _build_constraint_rows(sketch, lab, include=_PATTERN_KINDS)
-
-
-def _build_constraint_rows(
-    sketch: adsk.fusion.Sketch,
-    lab: EntityLabeler,
-    *,
-    exclude: frozenset[str] | None = None,
-    include: frozenset[str] | None = None,
-) -> list[dict]:
-    rows: list[dict] = []
+    This used to be two passes — one filtering the patterns out, one filtering
+    everything else out — and each of them ran every descriptor's builder
+    before discarding the rows it did not want. Builders read entity accessors
+    and an entityToken per chip, so the whole sketch was described twice per
+    payload, and OffsetConstraint (which neither section shows) was described
+    twice and thrown away twice. Deciding the section needs only the kind name,
+    which is a dict lookup and a string split, so it is decided before the
+    builder runs.
+    """
+    geometric: list[dict] = []
+    patterns: list[dict] = []
     gc = sketch.geometricConstraints
     for i in range(gc.count):
         c = gc.item(i)
-        desc = dispatch.DISPATCH.get(c.objectType)
-        if desc is None:
-            kind = c.objectType.split("::")[-1] if c.objectType else "UnknownConstraint"
-            result = dispatch.ScanResult(f"Unknown: {c.objectType}", [], [])
-            glyph = "coincident.svg"
+        obj_type = c.objectType
+        desc = dispatch.DISPATCH.get(obj_type)
+        kind = desc.kind if desc is not None else (
+            obj_type.split("::")[-1] if obj_type else "UnknownConstraint"
+        )
+        # _GEOMETRIC_EXCLUDE is a superset of _PATTERN_KINDS, so the pattern
+        # test has to come first. What is left in it is OffsetConstraint.
+        if kind in _PATTERN_KINDS:
+            bucket = patterns
+        elif kind in _GEOMETRIC_EXCLUDE:
+            continue
         else:
-            kind = desc.kind
-            glyph = desc.glyph
-            try:
-                result = desc.build(c, lab)
-                if kind == "OffsetConstraint":
-                    result = dispatch.patch_offset_label(result, c, sketch)
-            except Exception as exc:
-                result = dispatch.ScanResult(
-                    f"{kind} (builder raised)", [], [f"builder raised: {exc}"]
-                )
-        if include is not None and kind not in include:
-            continue
-        if exclude is not None and kind in exclude:
-            continue
-        tok = token_of(c) or ""
+            bucket = geometric
+        bucket.append(_constraint_row(c, obj_type, kind, desc, lab))
+    return geometric, patterns
+
+
+def _constraint_row(c, obj_type: str, kind: str, desc, lab: EntityLabeler) -> dict:
+    if desc is None:
+        result = dispatch.ScanResult(f"Unknown: {obj_type}", [], [])
+        glyph = "coincident.svg"
+    else:
+        glyph = desc.glyph
         try:
-            is_deletable = bool(c.isDeletable)
-        except Exception:
-            is_deletable = True
-        rows.append({
-            "rowKey": tok,
-            "token": tok,
-            "kind": kind,
-            "objectType": c.objectType,
-            "label": result.label,
-            "glyph": glyph,
-            "entities": result.entities,
-            "isDeletable": is_deletable,
-            "isPseudo": False,
-            "errors": result.errors,
-            "parameters": _extract_constraint_params(c, kind),
-        })
-    return rows
+            result = desc.build(c, lab)
+        except Exception as exc:
+            result = dispatch.ScanResult(
+                f"{kind} (builder raised)", [], [f"builder raised: {exc}"]
+            )
+    tok = token_of(c) or ""
+    try:
+        is_deletable = bool(c.isDeletable)
+    except Exception:
+        is_deletable = True
+    return {
+        "rowKey": tok,
+        "token": tok,
+        "kind": kind,
+        "objectType": obj_type,
+        "label": result.label,
+        "glyph": glyph,
+        "entities": result.entities,
+        "isDeletable": is_deletable,
+        "isPseudo": False,
+        "errors": result.errors,
+        "parameters": _extract_constraint_params(c, kind),
+    }
 
 
 def _extract_constraint_params(c, kind: str) -> list[dict]:
@@ -212,10 +236,6 @@ def _scan_dimensions(sketch: adsk.fusion.Sketch, lab: EntityLabeler) -> list[dic
     dims = sketch.sketchDimensions
     for i in range(dims.count):
         d = dims.item(i)
-        try:
-            result = dispatch.describe_dimension(d, lab, sketch)
-        except Exception as exc:
-            result = dispatch.ScanResult("Dimension (builder raised)", [], [f"builder raised: {exc}"])
         tok = token_of(d) or ""
         try:
             expr = d.parameter.expression
@@ -225,6 +245,15 @@ def _scan_dimensions(sketch: adsk.fusion.Sketch, lab: EntityLabeler) -> list[dic
             display = dimension_display(d.parameter, expr, units)
         except Exception:
             display = expr
+        # The label is what the tooltip shows and what the filter box searches,
+        # so it gets the same rounded value the row displays. Without this a
+        # dragged dimension put its full internal precision back in both —
+        # "Linear: Line 1 -> Line 3 = 5.1290366508 mm" on hover, and typing the
+        # 5.13 mm you can see on screen matched nothing.
+        try:
+            result = dispatch.describe_dimension(d, lab, sketch, value_text=display or expr)
+        except Exception as exc:
+            result = dispatch.ScanResult("Dimension (builder raised)", [], [f"builder raised: {exc}"])
         try:
             is_deletable = bool(d.isDeletable)
         except Exception:

@@ -86,10 +86,11 @@ class _ActiveSelectionChangedHandler(_SELECTION_HANDLER_BASE):
 def pin(event, handler: adsk.core.EventHandler) -> None:
     """Pin a handler to a Fusion event and keep its Python ref alive.
 
-    Use this from any module that creates its own event handlers (e.g.
-    CommandCreated). Without pinning, Python GC can drop the handler ref
-    while the C++ side still holds a pointer — Fusion crashes silently
-    on the next callback (landmine M-7).
+    The single place a handler is ever attached — every register_* function
+    below goes through it too, so there is one implementation of the M-7 rule
+    to get right. Without pinning, Python GC can drop the handler ref while the
+    C++ side still holds a pointer, and Fusion crashes silently on the next
+    callback.
     """
     event.add(handler)
     _handlers.append(handler)
@@ -97,15 +98,8 @@ def pin(event, handler: adsk.core.EventHandler) -> None:
 
 
 def register_app(app: adsk.core.Application, ui: adsk.core.UserInterface, on_change) -> None:
-    h1 = _DocumentActivatedHandler(on_change)
-    app.documentActivated.add(h1)
-    _handlers.append(h1)
-    _subscriptions.append((app.documentActivated, h1))
-
-    h2 = _CommandTerminatedHandler(on_change)
-    ui.commandTerminated.add(h2)
-    _handlers.append(h2)
-    _subscriptions.append((ui.commandTerminated, h2))
+    pin(app.documentActivated, _DocumentActivatedHandler(on_change))
+    pin(ui.commandTerminated, _CommandTerminatedHandler(on_change))
 
 
 def register_selection_changed(ui: adsk.core.UserInterface, on_change) -> bool:
@@ -114,10 +108,7 @@ def register_selection_changed(ui: adsk.core.UserInterface, on_change) -> bool:
     if event is None:
         return False
     try:
-        handler = _ActiveSelectionChangedHandler(on_change)
-        event.add(handler)
-        _handlers.append(handler)
-        _subscriptions.append((event, handler))
+        pin(event, _ActiveSelectionChangedHandler(on_change))
         return True
     except Exception:
         return False
@@ -128,15 +119,8 @@ def register_palette(
     on_message,
     on_closed,
 ) -> None:
-    h_in = _PaletteIncomingHandler(on_message)
-    palette.incomingFromHTML.add(h_in)
-    _handlers.append(h_in)
-    _subscriptions.append((palette.incomingFromHTML, h_in))
-
-    h_closed = _PaletteClosedHandler(on_closed)
-    palette.closed.add(h_closed)
-    _handlers.append(h_closed)
-    _subscriptions.append((palette.closed, h_closed))
+    pin(palette.incomingFromHTML, _PaletteIncomingHandler(on_message))
+    pin(palette.closed, _PaletteClosedHandler(on_closed))
 
 
 class _CustomEventHandler(adsk.core.CustomEventHandler):
@@ -173,10 +157,7 @@ def register_custom_event(app: adsk.core.Application, event_id: str, on_fire):
         return None
     if event is None:
         return None
-    handler = _CustomEventHandler(on_fire)
-    event.add(handler)
-    _handlers.append(handler)
-    _subscriptions.append((event, handler))
+    pin(event, _CustomEventHandler(on_fire))
     return event
 
 

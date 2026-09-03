@@ -314,43 +314,6 @@ _ENTRIES: list[ConstraintDescriptor] = [
 DISPATCH: dict[str, ConstraintDescriptor] = {d.object_type: d for d in _ENTRIES}
 
 
-def describe(constraint) -> tuple[ConstraintDescriptor, ScanResult]:
-    """Return (descriptor, scan_result) for a constraint; falls back to a generic row."""
-    try:
-        obj_type = constraint.objectType
-    except Exception:
-        obj_type = ""
-    desc = DISPATCH.get(obj_type)
-    if desc is None:
-        kind = obj_type.split("::")[-1] if obj_type else "UnknownConstraint"
-        desc = ConstraintDescriptor(obj_type, kind, "coincident.svg", _b_unknown)
-    try:
-        return desc, desc.build(constraint, _EMPTY_LABELER)
-    except Exception as exc:
-        return desc, ScanResult(f"{desc.kind} (unreadable)", [], [f"builder raised: {exc}"])
-
-
-def _b_unknown(c, lab):
-    obj_type = getattr(c, "objectType", "?")
-    return ScanResult(f"Unknown constraint kind: {obj_type}", [], [])
-
-
-# Sentinel labeler used only by describe()'s fallback path; real scans use
-# a per-sketch EntityLabeler instance.
-class _NullLabeler:
-    def label_for(self, _):
-        return "<no labeler>"
-
-    def kind_for(self, _):
-        return "SketchEntity"
-
-    def chip_for(self, _):
-        return {"token": "", "kind": "SketchEntity", "label": "<no labeler>"}
-
-
-_EMPTY_LABELER = _NullLabeler()
-
-
 # --- Dimension dispatch (smaller, uniform shape) ------------------------
 
 
@@ -502,7 +465,13 @@ def _find_offset_dim_for_constraint(c, sketch):
 
 def patch_offset_label(result: ScanResult, c, sketch) -> ScanResult:
     """Replace ', ?)' distance placeholder with the real expression from
-    c.distance or the matching SketchOffsetCurvesDimension."""
+    c.distance or the matching SketchOffsetCurvesDimension.
+
+    Unused while OffsetConstraint rows are suppressed — the offset is shown as
+    its SketchOffsetCurvesDimension instead (scanner._GEOMETRIC_EXCLUDE). Kept
+    because it is the fix for OffsetConstraint.distance returning None in the
+    January 2026 build, and re-showing those rows would need it again.
+    """
     if not result.label.endswith(", ?)"):
         return result
     d = _safe(lambda: c.distance)
@@ -517,9 +486,24 @@ def patch_offset_label(result: ScanResult, c, sketch) -> ScanResult:
     return ScanResult(new_label, result.entities, result.errors)
 
 
-def describe_dimension(dim, lab: EntityLabeler, sketch=None) -> ScanResult:
+def describe_dimension(dim, lab: EntityLabeler, sketch=None, value_text=None) -> ScanResult:
+    """Label and entity chips for one sketch dimension.
+
+    `value_text` is the value as the palette displays it — see
+    scanner.dimension_display. It is passed in rather than read here because
+    formatting it needs the document's UnitsManager, which the scanner already
+    holds. Falls back to the raw expression when the caller has none.
+    """
     obj_type = getattr(dim, "objectType", "")
     kind_label = _DIMENSION_KINDS.get(obj_type, obj_type.split("::")[-1] or "Dimension")
+
+    def _value() -> str:
+        if value_text:
+            return value_text
+        try:
+            return dim.parameter.expression
+        except Exception:
+            return "?"
 
     # SketchOffsetCurvesDimension does not expose its source curves directly
     # in any reliable accessor on the dimension itself — try common attribute
@@ -536,21 +520,12 @@ def describe_dimension(dim, lab: EntityLabeler, sketch=None) -> ScanResult:
             if ofc is not None:
                 n += _iter_curves_into_chips(_safe(lambda: ofc.parentCurves), lab, chips)
                 n += _iter_curves_into_chips(_safe(lambda: ofc.childCurves), lab, chips)
-        expr = "?"
-        try:
-            expr = dim.parameter.expression
-        except Exception:
-            pass
-        return ScanResult(f"{kind_label} ({n} curves) = {expr}", chips, [])
+        return ScanResult(f"{kind_label} ({n} curves) = {_value()}", chips, [])
 
     ents = _entities_from_dim(dim, obj_type)
     e1 = ents[0] if ents else None
     e2 = ents[1] if len(ents) > 1 else None
-    expr = "?"
-    try:
-        expr = dim.parameter.expression
-    except Exception:
-        expr = "?"
+    expr = _value()
     if e1 and e2:
         label = f"{kind_label}: {lab.label_for(e1)} → {lab.label_for(e2)} = {expr}"
     elif e1:

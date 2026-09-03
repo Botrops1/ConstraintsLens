@@ -1,5 +1,6 @@
 # lib/lifecycle.py — command + palette registration (SPEC.md sections 4, 6, 7).
 
+import math
 import os
 import shutil
 import threading
@@ -149,6 +150,7 @@ def stop() -> None:
     # thread's fireCustomEvent calls are aimed at.
     _stop_sketch_poll()
     events.unregister_all()
+    _reset_session_state()
 
     global _palette, _button_control, _command_definition
     if _palette is not None:
@@ -171,6 +173,32 @@ def stop() -> None:
         except Exception:
             pass
         _command_definition = None
+
+
+def _reset_session_state() -> None:
+    """Return the module globals to their start-of-session values.
+
+    Stopping and restarting the add-in from Scripts and Add-Ins does not reload
+    this module — Python keeps it in sys.modules — so without this every global
+    below survives into the next run. _ever_opened is the one that shows:
+    left True, the restarted add-in decides the user has already opened the
+    palette this session and auto-opens it on the next sketch, which is exactly
+    the behaviour closing it with the X is meant to switch off. The rest are
+    measurements and latches of a palette that no longer exists.
+    """
+    global _ever_opened, _suppress_closed_event, _applying_height
+    global _auto_zoom, _swallow_selection_until
+    global _dock_column_px, _last_apply_note, _last_sketch_counts, _poll_enabled
+    _ever_opened = False
+    _suppress_closed_event = False
+    _applying_height = False
+    _auto_zoom = False
+    _swallow_selection_until = 0.0
+    _dock_column_px = 0
+    _last_apply_note = ""
+    _last_sketch_counts = (-1, -1)
+    _poll_enabled = False
+    labels.invalidate()
 
 
 # --- Native icon copy ---------------------------------------------------
@@ -538,7 +566,7 @@ def _apply_palette_height(target_px: int) -> int:
     success even when docking prevented the resize, and every setMaximumSize
     call the probes made returned False whether or not it took effect.
     """
-    global _last_apply_note, _applying_height
+    global _applying_height
     if _palette is None or not _is_palette_alive(_palette):
         return 0
 
@@ -774,7 +802,25 @@ def _on_change() -> None:
     _push_dock_info()
 
 
+def _palette_visible() -> bool:
+    if _palette is None:
+        return False
+    try:
+        return bool(_palette.isVisible)
+    except Exception:
+        return False
+
+
 def _on_selection_changed() -> None:
+    # Nothing this handler produces can be seen behind a hidden palette:
+    # messaging.send() drops every payload for an invisible one (landmine M-8),
+    # and auto-zoom is a palette toggle the user cannot reach while it is away.
+    # Checking first matters because the event still fires for every click in
+    # the browser tree and the canvas outside sketch-edit mode, where the
+    # palette is hidden by design — and _build_selection_info() below is not
+    # free. This is the same short-circuit _republish_if_sketch_changed() makes.
+    if not _palette_visible():
+        return
     app = adsk.core.Application.get()
     # Swallow auto-updates briefly after Show-underconstrained so the
     # generic "Selected:" payload doesn't overwrite "Underconstrained:".
@@ -964,14 +1010,9 @@ def _republish_if_sketch_changed(app: adsk.core.Application) -> None:
     Covers the case commandTerminated misses: a constraint tool that stays
     active while the user applies it to one pair of entities after another.
     """
-    if _palette is None:
-        return
     # Nothing to update behind a hidden palette, and messaging.send() would
     # drop the payload anyway — so skip before doing any scanning work.
-    try:
-        if not _palette.isVisible:
-            return
-    except Exception:
+    if not _palette_visible():
         return
     try:
         sketch = scanner.active_sketch(app)
@@ -1101,7 +1142,9 @@ def _build_selection_info(app: adsk.core.Application) -> dict:
     try:
         sketch = scanner.active_sketch(app)
         if sketch is not None:
-            labeler = labels.EntityLabeler(sketch)
+            # Cached: this runs on every canvas click, and building a labeler
+            # from scratch reads an entityToken for every entity in the sketch.
+            labeler = labels.labeler_for(sketch)
     except Exception:
         labeler = None
 
@@ -1369,39 +1412,50 @@ def _fmt_angle(units, value_rad) -> str:
         except Exception:
             pass
     # Fusion stores angles in radians; convert for the manual fallback.
-    import math
     return f"{math.degrees(value_rad):.3g}°"
 
 
-def _fmt_area(units, value_cm2) -> str:
-    # No dedicated area formatter on UnitsManager; emit a sensible default.
+# Fusion stores areas in cm^2 and volumes in cm^3, and UnitsManager has no
+# formatter for either — formatValue only understands linear units. These
+# factors convert a cm value into the document's own length unit. A unit not in
+# the table falls back to cm, which is always numerically correct even when it
+# is not what the user has configured; before this the table stopped at m/in,
+# so cm and ft documents both landed on that fallback.
+_AREA_FACTOR: dict[str, float] = {
+    "mm": 100.0,
+    "cm": 1.0,
+    "m":  1.0 / 10_000.0,
+    "in": 1.0 / 6.4516,           # 2.54^2
+    "ft": 1.0 / 929.0304,         # 30.48^2
+}
+
+_VOLUME_FACTOR: dict[str, float] = {
+    "mm": 1000.0,
+    "cm": 1.0,
+    "m":  1.0 / 1_000_000.0,
+    "in": 1.0 / 16.387064,        # 2.54^3
+    "ft": 1.0 / 28_316.846592,    # 30.48^3
+}
+
+
+def _fmt_derived(units, value_cm: float, factors: dict[str, float], power: str) -> str:
+    unit = "cm"
     if units is not None:
         try:
-            default = units.defaultLengthUnits
-            if default in ("mm",):
-                return f"{value_cm2 * 100:.4g} mm^2"
-            if default in ("m",):
-                return f"{value_cm2 / 10000:.4g} m^2"
-            if default in ("in",):
-                return f"{value_cm2 / 6.4516:.4g} in^2"
+            preferred = units.defaultLengthUnits
+            if preferred in factors:
+                unit = preferred
         except Exception:
             pass
-    return f"{value_cm2:.4g} cm^2"
+    return f"{value_cm * factors[unit]:.4g} {unit}{power}"
+
+
+def _fmt_area(units, value_cm2) -> str:
+    return _fmt_derived(units, value_cm2, _AREA_FACTOR, "^2")
 
 
 def _fmt_volume(units, value_cm3) -> str:
-    if units is not None:
-        try:
-            default = units.defaultLengthUnits
-            if default in ("mm",):
-                return f"{value_cm3 * 1000:.4g} mm^3"
-            if default in ("m",):
-                return f"{value_cm3 / 1_000_000:.4g} m^3"
-            if default in ("in",):
-                return f"{value_cm3 / 16.387064:.4g} in^3"
-        except Exception:
-            pass
-    return f"{value_cm3:.4g} cm^3"
+    return _fmt_derived(units, value_cm3, _VOLUME_FACTOR, "^3")
 
 
 def _publish_active(app: adsk.core.Application) -> None:
@@ -1494,12 +1548,15 @@ def _handle_delete(app: adsk.core.Application, payload: dict) -> None:
 
 
 def _handle_bulk_delete(app: adsk.core.Application, payload: dict) -> None:
-    tokens: list[str] = payload.get("tokens") or []
-    if not tokens:
+    # Not named `tokens`: that is the name of the module this file imports for
+    # entityToken resolution, and shadowing it here is one edit away from a
+    # NameError nobody sees until a bulk delete is attempted.
+    constraint_tokens: list[str] = payload.get("tokens") or []
+    if not constraint_tokens:
         return
     ok_count = 0
     fail_count = 0
-    for tok in tokens:
+    for tok in constraint_tokens:
         result = actions.delete_constraint(app, tok)
         if result.ok:
             ok_count += 1
