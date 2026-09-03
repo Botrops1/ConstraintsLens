@@ -2,7 +2,120 @@
 
 ---
 
-## v1.6.1 (current)
+## v1.6.5 (current)
+
+**Faster on every click, and the filter box no longer holds on after you let go.**
+
+### The auto-filter lets go when the selection does
+
+Clicking one entity on the canvas fills the filter box with its name, which is
+a convenience with no way to undo itself. Deselect, click empty space, or
+select two things instead, and the list stayed narrowed to an entity that was
+no longer selected, with nothing on screen saying why — the only way out was
+the ✕ beside the box. It also fought the feature next to it: rows matching the
+new selection were highlighted and then filtered straight out of the view.
+
+The filter box now tells a filter it chose apart from one you typed. The first
+kind is retired as soon as it stops describing the selection — nothing
+selected, nothing matched, several matched, or a move to another sketch. The
+second kind is never cleared for you, and neither is disturbed by a rescan of
+the sketch you are already in.
+
+### Less work per click
+
+Nothing here changes what you see; it changes how much happens to show it.
+
+- **The sketch was described twice on every scan.** Geometric constraints and
+  patterns were gathered in two separate passes, each of which built every row
+  in the sketch and then discarded the ones it did not want. One pass now.
+- **The entity-name index was rebuilt on every canvas click.** Naming entities
+  reads an identifier for each one in the sketch, and that was happening again
+  for each selection change on top of each scan. It is cached and rebuilt only
+  when the sketch's geometry actually changes.
+- **Selection work ran behind a hidden palette.** Outside sketch-edit mode the
+  palette is hidden by design, but every click in the browser tree still
+  triggered a full read of the selection whose result was then thrown away.
+
+### Corrections
+
+- Dimension rows put their full internal precision back into the hover tooltip
+  and the filter index — the row showed `5.13 mm` while hovering it showed
+  `5.1290366508 mm`, and typing the number you could see matched nothing.
+- Areas and volumes were converted for millimetre, metre and inch documents
+  only; centimetre and foot documents both fell back to reporting cm² and cm³.
+- The in-palette help sheet still said Fusion remembers where you put the
+  palette. It does not — that was established in v1.6.4 and corrected in the
+  README at the time, but not in the sheet.
+- Stopping and restarting the add-in without restarting Fusion carried the old
+  run's state over, so a palette closed with ✕ reappeared on the next sketch.
+
+### For contributors
+
+`tests/headless/` is new: the Python runs against hand-written `adsk` stubs and
+the palette runs in a real browser over `file://`, both without Fusion
+installed, and both in CI on every push. See `tests/headless/README.md`.
+
+---
+
+## v1.6.4
+
+**The palette opens docked to the right (#11), and the install path in the
+README was wrong for everyone.**
+
+A new custom palette is created at (0, 0) floating. When the Fusion window is
+not on the primary monitor, that corner belongs to a different screen, so the
+palette opened off the Fusion window entirely and nothing appeared to happen.
+It now docks to the right edge on creation — the same place Fusion's own Sketch
+Palette lives — which sidesteps screen coordinates altogether.
+
+This happens on every launch, not just the first: Fusion does not restore a
+custom palette's docking state between sessions, so there is no remembered
+choice to override. Within a session only creation docks — move the palette by
+hand and it stays where you put it, including across leaving and re-entering a
+sketch.
+
+`setPosition` was deliberately not used. The coordinate frame those numbers are
+counted from is still unverified, and guessing wrong would push the palette
+further off-screen rather than back on.
+
+Also: **Installation step 4 said Tools → Add-Ins.** Fusion renamed that tab to
+**Utilities** on every platform, so the instruction was stale for everyone at
+the exact step where a new user concludes the add-in is broken. `Shift+S` is
+documented as the version-proof route.
+
+---
+
+## v1.6.3
+
+**Discoverability: the drag strips are visible now, and a `?` explains the rest.**
+
+Both resize grips drew their handle bar in the hairline border colour — about
+`#404040` on a `#333` strip — so neither could be found without hovering over
+it. They have their own colour tokens now, per theme, and the bars are wider.
+
+The `?` button on the name bar opens a sheet listing every unlabelled click
+target in the palette: row body versus row icon, entity chip, pencil, grip
+strip. Dismiss it with `?` again, Esc, ✕, or a click on the backdrop.
+
+---
+
+## v1.6.2
+
+**The "Properties of selected" pane is draggable (#12).**
+
+The v1.6.0 density pass capped it at about two rows, which is too short to read
+the properties of several selected entities at once. Both it and the
+"Selected:" chip strip get a drag strip; double-click either to reset it. The
+default cap is taller than it was, and the size is remembered between sessions.
+
+Because the divider resizes a pane inside the palette rather than the palette
+itself, it applies live as you drag — none of the docked-height machinery is
+involved. Neither pane can take more than 60% of the view, so the constraint
+list cannot be crowded out.
+
+---
+
+## v1.6.1
 
 **Readable numbers.**
 

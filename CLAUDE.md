@@ -2,25 +2,44 @@
 
 ## Current Status
 
-**Working on:** Maintenance / community issues. v1.6.0–v1.6.4 released and merged to `main`; issues #8/#9/#10/#12 closed. v1.6.4 (issue #11 — palette opens docked right) is **PC-verified 2026-09-03**: docks right on a fresh start, a hand-moved palette survives sketch exit/entry, and the ⇕ presets and grip still work from a palette that starts docked.
-**Version:** 1.6.4 (manifest + commit must always match).
-**Next step:** #11 stays **open** until the original reporter confirms on an actual multi-monitor setup — the maintainer's machine has one monitor and cannot reproduce the bug, so local verification proves the palette docks, not that the off-screen case is cured.
+**Working on:** Maintenance / community issues. v1.6.0–v1.6.5 merged to `main`; issues #8/#9/#10/#12 closed. v1.6.4 (issue #11 — palette opens docked right) is **PC-verified 2026-09-03**: docks right on a fresh start, a hand-moved palette survives sketch exit/entry, and the ⇕ presets and grip still work from a palette that starts docked.
+**Version:** 1.6.5 (manifest + commit must always match).
+**Next step:** v1.6.5 is a refactor/perf/UX pass verified headlessly only — **it has not been run in Fusion**. See "What v1.6.5 needs from a PC test" below before releasing. Then #11 stays **open** until the original reporter confirms on an actual multi-monitor setup — the maintainer's machine has one monitor and cannot reproduce the bug, so local verification proves the palette docks, not that the off-screen case is cured.
 Also watch the double-click-to-edit-sketch report — it was traced to the 500 ms poll tick colliding with Windows' double-click threshold, gated to sketch-edit mode only, and is no longer reproducible; timing instrumentation found no other per-click stall (slowest event in the add-in is a 47 ms sketch activation, palette pushes are sub-millisecond). **If it recurs, suspect `_start_sketch_poll` first.**
 **Convention:** Every commit that bumps the version string must also update `ConstraintLens/ConstraintLens.manifest` `"version"` field so Fusion shows the correct version.
 **Blocked by:** Nothing.
 
-### Outstanding manual steps (left over from the 2026-09-03 session)
-The **v1.6.4 GitHub Release was never published** — `main` and the manifest say 1.6.4, but the newest release on GitHub is still **v1.6.1**, so nothing downloadable carries the #11, #12 or help-sheet work. v1.6.2 and v1.6.3 were merged but never released either, so one v1.6.4 release covers all three. Remaining:
-1. `git tag -a v1.6.4 -m "Constraint Lens v1.6.4" && git push origin v1.6.4`, then draft the release and attach a zip named `ConstraintLens-v1.6.4.zip` (asset convention from v1.6.1: top-level `ConstraintLens/` folder, tracked files only, ~55 KB).
-2. Reddit reply about the install path (`Utilities`, not `Tools`).
-3. Reddit announcement of v1.6.4 — **after** the release is live, or the download link 404s.
-4. Close #11 once the original reporter confirms on real multi-monitor hardware.
+### Outstanding manual steps
+**No GitHub Release has been published since v1.6.1.** `main` and the manifest now say 1.6.5, so one release covers v1.6.2 through v1.6.5 — nothing downloadable yet carries the #11, #12, help-sheet or v1.6.5 work. RELEASE_NOTES.md now has sections for all four, written to be pasted into the release body. Remaining:
+1. PC-test v1.6.5 (see below) — it has never been run in Fusion.
+2. `git tag -a v1.6.5 -m "Constraint Lens v1.6.5" && git push origin v1.6.5`, then draft the release and attach a zip named `ConstraintLens-v1.6.5.zip` (asset convention from v1.6.1: top-level `ConstraintLens/` folder, tracked files only, ~55 KB).
+3. Reddit reply about the install path (`Utilities`, not `Tools`).
+4. Reddit announcement of v1.6.5 — **after** the release is live, or the download link 404s.
+5. Close #11 once the original reporter confirms on real multi-monitor hardware.
+
+### What v1.6.5 needs from a PC test
+Everything in it was verified headlessly (`tests/headless/`, 34 unit tests + 23 browser checks) and nothing in it was run in Fusion. The headless suites cover the logic; what they cannot reach is the API's actual behaviour. Check in this order — the first two are the ones that could break the add-in outright:
+1. **The palette still populates on sketch entry.** That exercises the rewritten single-pass scan and the labeler cache together. Compare a few row labels and entity chips against v1.6.4 — the payload is meant to be byte-identical.
+2. **The selection footer still fills in** when you click a line, a circle, an arc, a point, a profile and a dimension. This is the labeler-cache path and the reworked area/volume formatting.
+3. **Draw geometry with a tool left active, then click one of the new entities.** The labeler cache is keyed on collection counts, so this is the case that proves it invalidates.
+4. **Stop and re-run the add-in from Scripts and Add-Ins** without restarting Fusion: the palette must NOT auto-open on the next sketch until the toolbar button is clicked (that is `_reset_session_state`).
+5. **Area/volume in a non-mm document** — a cm or ft document should now report cm²/ft², not fall back.
 
 **Environment note for cloud sessions:** `git push` of a **tag** fails here (`send-pack: unexpected disconnect`, reproducible; branch pushes are fine), and the GitHub MCP toolset has **no create-release or upload-asset call** — only `list_releases` / `get_release_by_tag` / `get_latest_release`. Releases therefore cannot be published from a cloud session at all; build the zip, hand it over, and let the maintainer tag and publish.
 
-### Verifying palette UI without Fusion
-The palette is plain HTML/CSS/JS, so **its behaviour can be tested headlessly** — this caught every #12 and v1.6.3 bug before the files ever reached Fusion, and is much faster than a copy-and-restart cycle. In a cloud session: `pip install playwright`, then drive the real `ConstraintLens/palette/index.html` over `file://` with `pw.chromium.launch(executable_path="/opt/pw-browsers/chromium")` — note the **pre-installed browser needs that explicit path**, since a fresh `pip install playwright` looks for a different build number and tells you to run `playwright install` (don't — it is not needed and may be blocked).
-Seed state by calling the same DOM mutations `app.js` performs (`document.getElementById('footer-section').className = ''`, inject `.sel-item` rows, …), then drive real pointer events for drag tests. Verified this way: live resize in both directions, the 24 px / 60%-of-view clamps, `localStorage` persistence across reload, all four help-sheet dismiss paths, and both themes. **What it cannot tell you** is anything about Fusion's Qt web view, the real dock column, or the Python side — those still need a PC test.
+### Testing without Fusion — `tests/headless/` (v1.6.5)
+Both halves of the add-in now have automated coverage that needs no Fusion, and CI runs both on every push. **Run them before touching anything and after every change.**
+
+```sh
+cd tests/headless && python3 -m unittest discover      # 34 tests, no dependencies
+python3 tests/headless/palette_ui_check.py             # 23 checks, needs playwright
+```
+
+- **Python**: `tests/headless/stubs/adsk/` is a hand-written stand-in for the `adsk` package — enough of it that `lib/*.py` imports, i.e. the handler base classes they subclass and the entity classes used in `isinstance` checks and annotations. `fakes.py` builds sketch-shaped objects that **count every accessor read**, which is how `test_scanner` asserts a constraint is described once per scan rather than twice. Add a fake, not a mock framework.
+- **Palette**: `palette_ui_check.py` drives the real `ConstraintLens/palette/index.html` over `file://` and calls the same `window.fusionJavaScriptHandler.handle()` Fusion calls. Named so `unittest discover` skips it, because it needs a browser. In a cloud session the **pre-installed Chromium needs an explicit path** — `chromium_path()` in that file finds `/opt/pw-browsers/chromium-*/chrome-linux/chrome` itself; a fresh `pip install playwright` otherwise looks for a different build number and tells you to run `playwright install` (don't — it may be blocked).
+- **The discipline that makes this worth having:** before fixing a bug, add the check that fails, then confirm it fails against the pre-fix file (`git show main:<path> > <path>`, run, restore). Both v1.6.5 regressions were confirmed that way.
+- Drag tests still work the older way: seed state with the same DOM mutations `app.js` performs and drive real pointer events. Verified that way: live pane resize in both directions, the 24 px / 60%-of-view clamps, `localStorage` persistence across reload, both themes.
+- **What none of it can tell you** is anything about Fusion's Qt web view, the real dock column, real Fusion objects, or whether an API call behaves as documented. Those still need a PC test.
 
 ### Issue #11 probe findings (2026-09-03, Fusion 2704.1.53, `tests/probe_palette_position/`)
 - **Root cause found: a brand-new custom palette is created at `left=0, top=0`, floating.** All three reads (immediately after `palettes.add()`, after one `doEvents()`, after settling) agree. The reporter described it appearing "in the upper left corner of my primary monitor" — an exact match for (0,0) resolving to the desktop origin rather than the Fusion window's.
@@ -29,7 +48,19 @@ Seed state by calling the same DOM mutations `app.js` performs (`document.getEle
 - **Docking right works and is visible**: `left=1495 w=420 h=690 dock=4`.
 - **RESOLVED: Fusion does NOT restore a custom palette's docking state across sessions.** The probe's throwaway returned `itemById -> False` after a restart and came back Floating at (0,0); the maintainer independently confirms having to re-dock ConstraintLens on every launch. **The README claimed the opposite** (from v1.2.1 PC testing) and has been corrected. Consequences: the palette returns to (0,0) every session, which is why the reporter hit the bug repeatedly rather than once; and the fix docks on **every** creation, not first-run-only, with no settings file needed — there is no remembered choice to preserve.
 
-### Recent fixes (v1.0.1–v1.6.4)
+### Recent fixes (v1.0.1–v1.6.5)
+- v1.6.5: **Per-click and per-scan cost cut; the auto-filter now lets go.** Headless-verified only — see the PC test list above.
+  - **The sketch was described twice per payload.** `_scan_constraints` and `_scan_patterns` each walked all of `geometricConstraints` and ran every descriptor's builder, *then* filtered — so every builder ran twice and half the results were discarded, and `OffsetConstraint` (shown in neither section) was built twice and discarded twice. `_scan_constraint_rows()` decides the section from the kind name *before* building. Row order and contents are unchanged; `test_scanner` asserts the accessor read count is exactly 1.
+  - **`EntityLabeler` was rebuilt on every canvas click.** Construction reads `entityToken` for every line/point/circle/arc/ellipse/spline — the expensive read — and it happened in `build_payload`, again in `_build_selection_info`, and again on every `activeSelectionChanged`. `labels.labeler_for()` caches it behind a 9-property fingerprint (sketch name, component name, 7 collection counts) that never touches `entityToken`. **Deleting one entity and adding another inside a single command leaves the counts equal**, so that one case can serve a stale labeler — harmless, and the `commandTerminated` republish immediately afterwards refreshes it.
+  - **`_on_selection_changed` now short-circuits on palette visibility.** The event fires for every click in the browser tree outside sketch-edit mode, where the palette is hidden by design and `messaging.send()` drops the payload anyway (M-8) — so the work was pure waste. Auto-zoom is gated with it: it is a palette toggle you cannot reach while the palette is away.
+  - **Auto-filter stickiness.** Clicking one entity fills the filter box (#22) and had no way to undo itself, so the list stayed narrowed to a deselected entity — and rows the *new* selection highlighted were filtered out of the DOM, breaking canvas→palette lookup. `state.autoFilter` records the filter this code chose; it is retired when the selection stops matching it (nothing/none/several matched, or a different sketch) and a typed filter is never touched. A rescan of the *same* sketch leaves an auto filter alone, or the poll would pull it out from under you mid-edit.
+  - **`tokenIndex()` is memoized per snapshot** — it was rebuilt inside `onSelectionResult`, walking every row and chip on every canvas click.
+  - **Dimension labels carried full internal precision.** `describe_dimension` read `parameter.expression` itself, so the row showed `5.13 mm` while its tooltip showed `5.1290366508 mm` and `matchesFilter` (which reads `row.label`) matched neither. It now takes `value_text=` from the scanner, which already has the units manager. `data-expr` still carries the raw expression — the editor must never be seeded with a formatted string.
+  - **`_fmt_area` / `_fmt_volume` covered mm/m/in only**; cm and ft documents both fell through to the cm fallback. One factor table, five units, `_fmt_derived()` shared.
+  - **`stop()` left every module global set.** Fusion does not reload the module on restart, so `_ever_opened` stayed True and a palette closed with ✕ reappeared on the next sketch. `_reset_session_state()`.
+  - **`_handle_bulk_delete` had a local named `tokens`**, shadowing the module the file imports for token resolution. One edit away from a `NameError` nobody sees until a bulk delete.
+  - Dead code removed: `dispatch.describe()` / `_NullLabeler` / `_b_unknown` (scanner grew its own fallback long ago). `dispatch.patch_offset_label()` is **also unreachable** while `_GEOMETRIC_EXCLUDE` suppresses OffsetConstraint rows — kept and labelled, since it is the fix for `.distance` returning None.
+  - `events.py` attached handlers four different ways; all four now go through `pin()`, so M-7 has one implementation.
 - v1.6.4: **Issue #11 — the palette now opens docked right.** PC-verified 2026-09-03 (docks on a fresh start; a hand-moved palette survives sketch exit/entry; height controls unaffected by starting docked). The multi-monitor case itself is unverified — no such hardware available. One line in `_show_palette`, placed after `setMinimumSize` (which only takes while floating) and before anything is published. See the probe findings above for why: a new palette is created at (0,0), which is a different monitor's corner when Fusion is not on the primary one.
   - **Docks on every creation, not first-run-only**, because Fusion does not remember the position — see above. No settings file is involved.
   - Only *creation* docks. Hide/show on sketch exit and entry reuses the existing palette object, so a user who moves it keeps their choice for the rest of the session.
@@ -101,6 +132,7 @@ Seed state by calling the same DOM mutations `app.js` performs (`document.getEle
 - v1.0.9: `ConstraintHorizontalVertical` confirmed as correct command for H/V dark icons via probe script.
 
 ### What's verified working (all PC tests + session history)
+- **v1.6.5 is NOT in this list.** It was verified headlessly only — 34 unit tests and 23 browser checks, no Fusion — and its behaviour-preserving claims (single-pass scan, labeler cache, visibility gate) rest on those tests plus reading. See "What v1.6.5 needs from a PC test" above.
 - **v1.6.0, PC verified 2026-07-27:** denser rows + one-line dimension rows; two-entity pair measurements (#8); dimension `Name` + point `Z` (#10); palette follows sketch-edit mode with auto-reopen (#9); docked height cycle + drag grip (tier 3 float/re-dock, returns to the same slot); live row counts while a constraint tool stays active.
 - **Still unconfirmed:** whether Fusion carries a manually-collapsed palette state through the auto hide/show. If it does, issue #9's "collapsed on reopen" request is satisfied without any API support — there is none to be had (see the v1.6.0 note below).
 - Add-in loads, palette docks, populates without Refresh click.
@@ -170,6 +202,11 @@ palette/
     ├── app.js                    Vanilla JS render loop + message handler
     └── styles.css                Dark theme matching Fusion
 tests/
+    ├── headless/                 Runs WITHOUT Fusion — unittest over lib/ + a browser check of the palette
+    │   ├── stubs/adsk/           Hand-written stand-in for the adsk package (import-time surface only)
+    │   ├── fakes.py              Sketch-shaped objects that count every accessor read
+    │   ├── test_*.py             `python3 -m unittest discover` from this directory
+    │   └── palette_ui_check.py   Drives palette/index.html in Chromium (needs playwright)
     ├── fixture_sketch/           Creates ConstraintLens_Fixture (4 constraints, 2 dims)
     ├── spike_probe/              API feasibility probe (all 5 Qs answered — run again after Fusion updates)
     └── fixture_midpoint/         M-1 trigger fixture (midpoint-to-midpoint)

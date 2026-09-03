@@ -148,7 +148,7 @@ searchable in the filter bar even though only the type is shown on the row.
 
 The **✕** button on the left always clears the filter instantly. Type any text in the search field to narrow the list — matches against constraint labels, constraint type names, and entity chip labels (e.g. type `"Line 3"` to find every constraint that involves Line 3). The section headers update to show `(N of M)` when a filter is active.
 
-The filter is also set **automatically** when you click a single entity on the canvas — the palette immediately narrows to constraints that involve that entity. Click ✕ or clear the field manually to restore the full list.
+The filter is also set **automatically** when you click a single entity on the canvas — the palette immediately narrows to constraints that involve that entity — and clears itself again as soon as it stops describing what is selected: you deselect, you select several things, or you move to another sketch. A filter you typed yourself is never cleared for you; ✕ clears either kind at any time.
 
 ### Properties of selected footer
 
@@ -316,13 +316,23 @@ FusionConstraints/
 │   ├── lib/                        Python backend modules.
 │   └── palette/                    HTML/JS/CSS palette UI (vanilla JS, no build step).
 └── tests/
+    ├── headless/                   Runs without Fusion — unit tests + a browser check of the palette.
     ├── fixture_sketch/             Deterministic test sketch (4 constraints, 2 dims, 4 implicit joins).
     ├── fixture_midpoint/           Triggers the M-1 midpoint-to-midpoint edge case.
     ├── fixture_dimensions/         Creates all dimension types for testing.
     └── spike_probe/                API-feasibility probe; re-run after each Fusion update.
 ```
 
-To run a test script: **Tools → Scripts and Add-Ins → Scripts → +** → select the subfolder → **Run**.
+To run a test script inside Fusion: **Utilities → Scripts and Add-Ins → Scripts → +** → select the subfolder → **Run**. (`Shift+S` opens the same dialog on any version.)
+
+`tests/headless/` needs no Fusion and runs in CI on every push:
+
+```sh
+cd tests/headless && python3 -m unittest discover      # the Python, against adsk stubs
+python3 tests/headless/palette_ui_check.py             # the palette, in a real browser
+```
+
+See `tests/headless/README.md` for what that can and cannot tell you.
 
 ---
 
