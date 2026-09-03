@@ -24,8 +24,9 @@ Fills the long-standing UX gap of having to hunt tiny on-canvas glyphs to audit 
 3. Copy the `ConstraintLens/` folder into your Fusion add-ins directory:
    - **Windows:** `%APPDATA%\Autodesk\Autodesk Fusion 360\API\AddIns\`
    - **macOS:** `~/Library/Application Support/Autodesk/Autodesk Fusion 360/API/AddIns/`
-4. In Fusion: **Tools → Scripts and Add-Ins → Add-Ins** tab → select **ConstraintLens** → **Run**.
+4. In Fusion: **Utilities → Add-Ins → Scripts and Add-Ins** (or press `Shift+S`) → **Add-Ins** tab → select **ConstraintLens** → **Run**.
    - Tick **Run on Startup** to load it automatically on every Fusion launch.
+   - Older Fusion versions put this under a **Tools** tab instead of **Utilities**. Same dialog, and `Shift+S` opens it either way.
 5. The **Constraint Lens** button appears in the **Sketch → Constraints** panel (visible while editing a sketch).
 
 ---
@@ -33,7 +34,7 @@ Fills the long-standing UX gap of having to hunt tiny on-canvas glyphs to audit 
 ## Quick start
 
 1. Open a design and double-click a sketch in the browser tree to enter sketch-edit mode.
-2. Click **Constraint Lens** in the Sketch toolbar. A floating palette appears immediately — no Refresh needed.
+2. Click **Constraint Lens** in the Sketch toolbar. The palette appears immediately, docked on the right — no Refresh needed. Drag it anywhere you prefer, including back out to a floating window.
 3. The palette lists every geometric constraint, dimension, and implicit endpoint join in the sketch.
 4. Click any row to highlight the constraint's geometry in the viewport.
 
