@@ -416,10 +416,6 @@ def _show_palette() -> None:
         600,     # height
         True,    # useNewWebBrowser (Qt — required per locked decision)
     )
-    # Dock state is intentionally not set here — Fusion's drag-to-snap UX
-    # handles docking natively and remembers the last position across
-    # sessions, so any state we'd impose would override the user's choice.
-
     # setMinimumSize is applied here, while the palette is still floating —
     # the only point at which the dock layout takes size constraints (see the
     # probe notes on _dock_column_px above). It sets the floor for both the
@@ -431,6 +427,43 @@ def _show_palette() -> None:
     # palette via the height cycle button or the resize grip.
     try:
         _palette.setMinimumSize(_PALETTE_MIN_W, _PALETTE_MIN_H)
+    except Exception:
+        pass
+
+    # Issue #11: dock on creation, AFTER setMinimumSize (which only takes
+    # while floating) and before anything is published to the view.
+    #
+    # tests/probe_palette_position measured a brand-new custom palette landing
+    # at left=0, top=0, floating — the same on all three reads, immediately
+    # after add(), after one doEvents() and after settling. When the Fusion
+    # window itself sits on a secondary monitor, (0, 0) is the top-left of the
+    # *primary* one, so the palette opens off the Fusion window entirely and
+    # the user sees nothing happen. Docking sidesteps the whole coordinate
+    # question — a docked palette is inside the window by construction — which
+    # matters because the frame those numbers are counted from (desktop or
+    # window) is still unverified, and guessing it wrong with setPosition
+    # would push the palette further off-screen instead of back on.
+    #
+    # This runs on EVERY creation, not just the first. Fusion does not restore
+    # a custom palette's docking state across sessions (confirmed both by the
+    # probe and by the maintainer having to re-dock every launch), so there is
+    # no remembered choice here to override — without this the palette returns
+    # to (0, 0) on every restart, which is why the reporter hit it repeatedly.
+    # Within a session the palette is created once: the hide/show on sketch
+    # exit and entry reuses the existing object, so undocking or floating it by
+    # hand sticks until Fusion restarts.
+    #
+    # Not a repeat of v1.2.0, which forced a dock position and was reverted in
+    # v1.2.1. That was a cycle button competing with Fusion's own drag-to-snap
+    # on a palette the user could already see and move. This is a starting
+    # position for a palette that may be invisible off-screen, where "just drag
+    # it" is not an option the user has.
+    #
+    # Right edge because that is where Fusion's own Sketch Palette docks, which
+    # is what the issue asked for. Failure is non-fatal: a palette that would
+    # not dock is still a working palette.
+    try:
+        _palette.dockingState = adsk.core.PaletteDockingStates.PaletteDockStateRight
     except Exception:
         pass
 

@@ -83,7 +83,9 @@ One toggle button sits on the right end of the name bar:
 | **⇕ 50% / 75% / Full** (height cycle) | Cycles the docked height between half, three-quarters and the full dock column. The choice is saved in `localStorage` and re-applied the next time the palette is docked. |
 | **?** (tips) | Opens a cheat sheet of everything the palette can do, in the palette itself — most of it is an unlabelled click target. Dismiss with **Esc**, the **✕**, or by clicking outside the sheet. |
 
-> **Docking** is handled by Fusion itself. Drag the palette title bar to any edge of the Fusion window to snap-dock it (right / left / bottom / top), or drop it anywhere to float. Fusion remembers the position across sessions.
+> **Docking** is handled by Fusion itself. Drag the palette title bar to any edge of the Fusion window to snap-dock it (right / left / bottom / top), or drop it anywhere to float.
+>
+> **The palette opens docked to the right**, next to where Fusion's own Sketch Palette sits. Fusion does *not* remember a custom palette's position across sessions — left alone it creates one floating at screen coordinates (0, 0), which on a multi-monitor setup can be the corner of a different monitor than the one Fusion is on, making the palette look as though it never opened (issue #11). Docking it on creation puts it inside the Fusion window by construction. Move it wherever you like afterwards; the choice holds for the rest of the session, including across the automatic hide/show, and resets when Fusion restarts.
 >
 > **Height when docked** is handled by ConstraintLens, because Fusion does not give a docked custom palette a bottom drag handle of its own. Use the **⇕** button for the three presets, or drag the grip strip along the very bottom edge of the panel for any height in between. Width, and both dimensions while floating, are Fusion's own drag handles as usual.
 >
@@ -101,7 +103,7 @@ One toggle button sits on the right end of the name bar:
 >
 > **To stop it reappearing**, close it with the **✕**. It then stays away until you click **Constraint Lens** in the Sketch toolbar again.
 >
-> Your dock position, size and collapsed state are preserved across the hide/show, because Fusion remembers them itself — ConstraintLens never changes them.
+> Your dock position, size and collapsed state are preserved across the hide/show, because the palette object is reused rather than recreated — ConstraintLens never changes them once it is up. (Across a Fusion *restart* the palette is created afresh and opens docked right again, as above.)
 
 ### Selected section (canvas → palette, automatic)
 
