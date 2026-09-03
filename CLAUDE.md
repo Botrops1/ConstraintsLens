@@ -2,9 +2,9 @@
 
 ## Current Status
 
-**Working on:** Maintenance / community issues. v1.6.0–v1.6.3 released and merged to `main`; issues #8/#9/#10/#12 closed. v1.6.4 implements issue #11 (palette opens docked right) — **not yet PC-verified**.
+**Working on:** Maintenance / community issues. v1.6.0–v1.6.4 released and merged to `main`; issues #8/#9/#10/#12 closed. v1.6.4 (issue #11 — palette opens docked right) is **PC-verified 2026-09-03**: docks right on a fresh start, a hand-moved palette survives sketch exit/entry, and the ⇕ presets and grip still work from a palette that starts docked.
 **Version:** 1.6.4 (manifest + commit must always match).
-**Next step:** PC-verify v1.6.4: the palette should come up docked on the right on a fresh Fusion start, and moving it by hand should still stick for the rest of the session (the sketch-exit/entry hide/show must not re-dock it, since it reuses the palette object rather than recreating it).
+**Next step:** #11 stays **open** until the original reporter confirms on an actual multi-monitor setup — the maintainer's machine has one monitor and cannot reproduce the bug, so local verification proves the palette docks, not that the off-screen case is cured.
 Also watch the double-click-to-edit-sketch report — it was traced to the 500 ms poll tick colliding with Windows' double-click threshold, gated to sketch-edit mode only, and is no longer reproducible; timing instrumentation found no other per-click stall (slowest event in the add-in is a 47 ms sketch activation, palette pushes are sub-millisecond). **If it recurs, suspect `_start_sketch_poll` first.**
 **Convention:** Every commit that bumps the version string must also update `ConstraintLens/ConstraintLens.manifest` `"version"` field so Fusion shows the correct version.
 **Blocked by:** Nothing.
@@ -17,7 +17,7 @@ Also watch the double-click-to-edit-sketch report — it was traced to the 500 m
 - **RESOLVED: Fusion does NOT restore a custom palette's docking state across sessions.** The probe's throwaway returned `itemById -> False` after a restart and came back Floating at (0,0); the maintainer independently confirms having to re-dock ConstraintLens on every launch. **The README claimed the opposite** (from v1.2.1 PC testing) and has been corrected. Consequences: the palette returns to (0,0) every session, which is why the reporter hit the bug repeatedly rather than once; and the fix docks on **every** creation, not first-run-only, with no settings file needed — there is no remembered choice to preserve.
 
 ### Recent fixes (v1.0.1–v1.6.4)
-- v1.6.4: **Issue #11 — the palette now opens docked right.** One line in `_show_palette`, placed after `setMinimumSize` (which only takes while floating) and before anything is published. See the probe findings above for why: a new palette is created at (0,0), which is a different monitor's corner when Fusion is not on the primary one.
+- v1.6.4: **Issue #11 — the palette now opens docked right.** PC-verified 2026-09-03 (docks on a fresh start; a hand-moved palette survives sketch exit/entry; height controls unaffected by starting docked). The multi-monitor case itself is unverified — no such hardware available. One line in `_show_palette`, placed after `setMinimumSize` (which only takes while floating) and before anything is published. See the probe findings above for why: a new palette is created at (0,0), which is a different monitor's corner when Fusion is not on the primary one.
   - **Docks on every creation, not first-run-only**, because Fusion does not remember the position — see above. No settings file is involved.
   - Only *creation* docks. Hide/show on sketch exit and entry reuses the existing palette object, so a user who moves it keeps their choice for the rest of the session.
   - `setPosition` was deliberately not used: the coordinate frame is unverified, and getting it wrong pushes the palette further off-screen. Docking needs no coordinates.
