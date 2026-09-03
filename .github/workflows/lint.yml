@@ -28,3 +28,40 @@ jobs:
         run: |
           ruff --version
           ruff check .
+
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+
+      # tests/headless runs the add-in's pure logic against hand-written adsk
+      # stubs — no Fusion, no third-party packages, nothing to install. What it
+      # cannot cover (real Fusion objects, the palette's Qt web view, docking)
+      # still needs a PC test; see PC_VALIDATION.md.
+      - name: Run headless tests
+        working-directory: tests/headless
+        run: python -m unittest discover --verbose
+
+  palette:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+
+      - name: Install Playwright
+        run: |
+          pip install playwright
+          playwright install --with-deps chromium
+
+      # The palette is plain HTML/CSS/JS, so its behaviour can be driven over
+      # file:// with the same handler Fusion calls. This covers app.js, which
+      # the unittest suite cannot reach at all.
+      - name: Check the palette UI
+        run: python tests/headless/palette_ui_check.py
