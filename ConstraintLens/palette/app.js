@@ -141,9 +141,20 @@
         snapshot: null,
         loaded: false,
         filter: "",
+        // The filter text this code set itself, or null when the user typed
+        // it. Selecting one entity fills the filter box for you (#22), and
+        // that convenience has to be able to take itself back when the
+        // selection moves on — while never discarding a query someone typed.
+        autoFilter: null,
+        // Identifies the sketch the current snapshot came from, so onData can
+        // tell a rescan from a move to another sketch.
+        sketchKey: null,
         selected: new Set(),
         highlights: new Set(),   // rowKeys highlighted by Find (#7)
         collapsed: new Set(),    // section ids collapsed by user (#14)
+        // token -> label / rowKeys, built on demand from the current snapshot
+        // and dropped when a new one arrives. See tokenIndex().
+        tokenIndex: null,
     };
 
     const els = {
@@ -173,6 +184,33 @@
         resizeGripReadout: document.getElementById("resize-grip-readout"),
     };
 
+    // --- Filter box ------------------------------------------------------
+
+    // `auto` marks a filter this code chose (a canvas selection, a chip click)
+    // as opposed to one the user typed. Only an auto filter is ever cleared
+    // on our own initiative.
+    function setFilter(text, auto) {
+        state.filter = (text || "").trim().toLowerCase();
+        els.filter.value = text || "";
+        state.autoFilter = auto ? state.filter : null;
+    }
+
+    function sketchKeyOf(payload) {
+        const sk = (payload && payload.sketch) || {};
+        return `${sk.componentName || ""}\u0000${sk.name || ""}`;
+    }
+
+    // Drop a filter we set ourselves, now that it no longer describes the
+    // selection. A filter the user typed survives: the selection changing is
+    // not a reason to throw away their query.
+    function clearAutoFilter() {
+        if (state.autoFilter !== null && state.filter === state.autoFilter) {
+            state.filter = "";
+            els.filter.value = "";
+        }
+        state.autoFilter = null;
+    }
+
     // --- Outgoing messages -----------------------------------------------
 
     function send(action, payload) {
@@ -187,11 +225,11 @@
     els.highlightUnder.addEventListener("click", () => send(JS_TO_PY.showUnderconstrained, {}));
     els.filter.addEventListener("input", () => {
         state.filter = els.filter.value.trim().toLowerCase();
+        state.autoFilter = null;   // typed by hand — ours to clear no longer
         renderSnapshot();
     });
     els.filterClear.addEventListener("click", () => {
-        state.filter = "";
-        els.filter.value = "";
+        setFilter("", false);
         renderSnapshot();
     });
     els.bulkDelete.addEventListener("click", () => {
@@ -243,7 +281,17 @@
     }
 
     function onData(payload) {
+        // Moving to a different sketch retires a filter we set from a
+        // selection in the old one — its entity names mean nothing here, and
+        // leaving it in place shows an empty list with no visible reason why.
+        // A rescan of the SAME sketch (every constraint the poll notices) must
+        // not, or the filter would vanish underneath someone mid-edit.
+        const key = sketchKeyOf(payload);
+        if (key !== state.sketchKey) clearAutoFilter();
+        state.sketchKey = key;
+
         state.snapshot = payload;
+        state.tokenIndex = null;
         state.selected.clear();
         updateBulkDeleteButton();
         els.highlightUnder.disabled = false;
@@ -252,6 +300,9 @@
 
     function onNoActiveSketch(payload) {
         state.snapshot = null;
+        state.tokenIndex = null;
+        state.sketchKey = null;
+        clearAutoFilter();
         state.selected.clear();
         state.highlights.clear();
         updateBulkDeleteButton();
@@ -293,6 +344,36 @@
         if (payload.readout) showEntityReadout(payload.readout);
     }
 
+    // token -> label, and token -> the rowKeys that mention it.
+    //
+    // Built once per snapshot. This used to be rebuilt inside
+    // onSelectionResult, which walks every row and every entity chip in the
+    // sketch — on every canvas click, for a snapshot that had not changed.
+    function tokenIndex() {
+        if (state.tokenIndex) return state.tokenIndex;
+        const labelOf = new Map();
+        const rowsOf = new Map();
+        const add = (tok, label, rowKey) => {
+            if (!tok) return;
+            if (!labelOf.has(tok)) labelOf.set(tok, label);
+            if (!rowsOf.has(tok)) rowsOf.set(tok, []);
+            rowsOf.get(tok).push(rowKey);
+        };
+        const snap = state.snapshot || {};
+        for (const section of [snap.constraints, snap.dimensions, snap.patterns, snap.implicitJoins]) {
+            for (const row of (section || [])) {
+                // The row's own token (the constraint or dimension object).
+                add(row.token, row.label || row.kind || "?", row.rowKey);
+                // Each entity chip token (the geometry it references).
+                for (const chip of (row.entities || [])) {
+                    add(chip.token, chip.label || chip.kind || "?", row.rowKey);
+                }
+            }
+        }
+        state.tokenIndex = { labelOf, rowsOf };
+        return state.tokenIndex;
+    }
+
     function onSelectionResult(payload) {
         const tokens = payload.tokens || [];
         const prefix = payload.prefix || "Selected:";
@@ -301,37 +382,15 @@
 
         if (!state.snapshot || tokens.length === 0) {
             showEntityReadout("");
+            clearAutoFilter();
             renderSnapshot();
             return;
         }
 
-        // Build entity token → label and token → [rowKey] indices from snapshot.
-        const tokenToLabel = new Map();
-        const tokenToRows = new Map();
-        const _addToken = (tok, label, rowKey) => {
-            if (!tok) return;
-            if (!tokenToLabel.has(tok)) tokenToLabel.set(tok, label);
-            if (!tokenToRows.has(tok)) tokenToRows.set(tok, []);
-            tokenToRows.get(tok).push(rowKey);
-        };
-        for (const section of [
-            state.snapshot.constraints,
-            state.snapshot.dimensions,
-            state.snapshot.patterns,
-            state.snapshot.implicitJoins,
-        ]) {
-            for (const row of (section || [])) {
-                // Index the row's own token (dimension/constraint entity itself).
-                _addToken(row.token, row.label || row.kind || "?", row.rowKey);
-                // Index each entity chip token (referenced geometry).
-                for (const chip of (row.entities || [])) {
-                    _addToken(chip.token, chip.label || chip.kind || "?", row.rowKey);
-                }
-            }
-        }
+        const { labelOf, rowsOf } = tokenIndex();
 
         // #12 — entity name readout as clickable chips.
-        const matched = tokens.filter(t => tokenToLabel.has(t)).map(t => ({ label: tokenToLabel.get(t), token: t }));
+        const matched = tokens.filter(t => labelOf.has(t)).map(t => ({ label: labelOf.get(t), token: t }));
         if (matched.length) {
             showReadoutChips(matched);
         } else {
@@ -339,14 +398,19 @@
         }
 
         // #22 — auto-filter to the selected entity when exactly one is matched.
+        // Anything else (nothing selected, nothing matched, several matched)
+        // means the filter we set no longer describes the selection, so it
+        // goes again — otherwise the list stayed narrowed to an entity that
+        // had long since been deselected, with no visible reason why.
         if (matched.length === 1) {
-            state.filter = matched[0].label.toLowerCase();
-            els.filter.value = matched[0].label;
+            setFilter(matched[0].label, true);
+        } else {
+            clearAutoFilter();
         }
 
         // #7 — collect matching row keys.
         for (const tok of tokens) {
-            for (const rk of (tokenToRows.get(tok) || [])) {
+            for (const rk of (rowsOf.get(tok) || [])) {
                 state.highlights.add(rk);
             }
         }
@@ -388,8 +452,7 @@
         const label = chip.getAttribute("data-label") || "";
         const token = chip.getAttribute("data-token") || "";
         if (label) {
-            state.filter = label.toLowerCase();
-            els.filter.value = label;
+            setFilter(label, true);
             renderSnapshot();
         }
         if (token) send(JS_TO_PY.selectEntities, { entityTokens: [token] });
@@ -707,8 +770,7 @@
             const label = chip.getAttribute("data-label") || "";
             const token = chip.getAttribute("data-token") || "";
             if (label) {
-                state.filter = label.toLowerCase();
-                els.filter.value = label;
+                setFilter(label, true);
                 renderSnapshot();
             }
             if (token) {
