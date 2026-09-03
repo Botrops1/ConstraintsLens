@@ -74,16 +74,25 @@
                     <li><b>⌕ Zoom</b> — when on, the camera follows each selection.</li>
                 </ul>
 
+                <h4>Reading the list</h4>
+                <ul>
+                    <li><b>Hover the type name</b> — shows the full description and the Fusion API type, e.g. <code>Tangent — Line 3 ⌒ Arc 1</code> and <code>TangentConstraint</code>. Both stay searchable even though the row shows only the type.</li>
+                    <li><b>A dimmed, dashed chip</b> marked <i>hidden</i> is geometry Fusion doesn't draw — internal control points from an offset or spline. The row still works: clicking it selects that entity.</li>
+                    <li><b>Endpoint joins</b> are implicit — two curves sharing one point, not a real constraint. They carry a <b>⊘</b> and no checkbox, because there is nothing for Fusion to delete.</li>
+                    <li>Section headers show <b>(N of M)</b> while a filter is active.</li>
+                </ul>
+
                 <h4>Editing</h4>
                 <ul>
                     <li><b>Double-click a row</b> — opens Fusion's own edit dialog for it.</li>
                     <li><b>Pencil icon</b> on a dimension — edit the expression inline. <b>Enter</b> commits, <b>Esc</b> cancels.</li>
-                    <li><b>Checkboxes + Delete N</b> — bulk delete. <b>Ctrl+Z</b> undoes the whole sketch edit, not one row.</li>
+                    <li><b>Checkboxes + Delete N</b> — bulk delete; <b>Clear</b> unchecks them all. <b>Ctrl+Z</b> undoes the whole sketch edit, not one row.</li>
                 </ul>
 
                 <h4>Finding</h4>
                 <ul>
                     <li><b>Filter box</b> — matches constraint type, label and entity names, so <code>Line 3</code> finds everything touching Line 3.</li>
+                    <li><b>Clicking one entity on the canvas sets the filter for you</b> — that's why the list sometimes narrows on its own. The <b>✕</b> beside the box clears it.</li>
                     <li><b>Show u/c</b> — runs Fusion's Show Underconstrained; results arrive as clickable chips.</li>
                     <li><b>Section header</b> — the chevron collapses it, the checkbox selects everything in it.</li>
                 </ul>
@@ -91,12 +100,14 @@
                 <h4>Sizing the panel</h4>
                 <ul>
                     <li><b>Drag a grip strip</b> — the one under <i>Selected:</i> and the one above <i>Properties of selected:</i> resize those panes. <b>Double-click</b> either one to reset it.</li>
-                    <li><b>⇕ button</b> — cycles the docked height: 50% / 75% / full column. The strip along the very bottom edge sets anything in between.</li>
-                    <li>Sizes and the theme are remembered between sessions.</li>
+                    <li><b>⇕ button</b> — cycles the docked height: 50% / 75% / full column. The strip along the very bottom edge sets anything in between. Both apply on release and flicker once — Fusion refuses to resize a docked palette in place.</li>
+                    <li><b>Dock or float</b> by dragging the palette's own title bar; Fusion remembers where you put it.</li>
                 </ul>
 
-                <h4>Showing and hiding</h4>
+                <h4>Housekeeping</h4>
                 <ul>
+                    <li><b>☀ / 🌙</b> — switches theme. Theme and pane sizes are remembered between sessions.</li>
+                    <li><b>Refresh</b> — rarely needed; the list re-scans itself after every sketch edit. Use it if the palette looks stale after minimising and restoring it.</li>
                     <li>The palette <b>follows sketch-edit mode</b> — it hides when you leave a sketch and returns on the next one.</li>
                     <li>Close it with <b>✕</b> to stop it reappearing until you click <b>Constraint Lens</b> in the Sketch toolbar again.</li>
                 </ul>
