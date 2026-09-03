@@ -11,6 +11,8 @@
         <button class="btn" id="height-cycle"
                 title="Docked height — click to cycle 50% / 75% / full">⇕ Full</button>
         <button class="btn" id="theme-toggle" title="Switch to light theme">☀</button>
+        <button class="btn" id="help-toggle"
+                title="Tips and tricks — what this palette can do">?</button>
     </div>
     <div class="toolbar">
         <button class="btn" id="clear-selection"
@@ -54,6 +56,52 @@
 
     <div id="resize-grip" title="Drag to set the docked height">
         <span id="resize-grip-readout"></span>
+    </div>
+
+    <div id="help-overlay" class="hidden">
+        <div id="help-sheet" role="dialog" aria-label="ConstraintLens tips">
+            <div id="help-head">
+                <strong>Tips &amp; tricks</strong>
+                <button class="btn" id="help-close" title="Close (Esc)">✕</button>
+            </div>
+            <div id="help-body">
+                <h4>Selecting</h4>
+                <ul>
+                    <li><b>Click a row</b> — selects that constraint's entities in the viewport.</li>
+                    <li><b>Click the icon</b> at the left of a row — selects the constraint object itself.</li>
+                    <li><b>Click an entity chip</b> — filters the list to it <i>and</i> selects it on the canvas.</li>
+                    <li><b>Select on the canvas</b> — matching rows highlight and scroll into view on their own; no button needed.</li>
+                    <li><b>⌕ Zoom</b> — when on, the camera follows each selection.</li>
+                </ul>
+
+                <h4>Editing</h4>
+                <ul>
+                    <li><b>Double-click a row</b> — opens Fusion's own edit dialog for it.</li>
+                    <li><b>Pencil icon</b> on a dimension — edit the expression inline. <b>Enter</b> commits, <b>Esc</b> cancels.</li>
+                    <li><b>Checkboxes + Delete N</b> — bulk delete. <b>Ctrl+Z</b> undoes the whole sketch edit, not one row.</li>
+                </ul>
+
+                <h4>Finding</h4>
+                <ul>
+                    <li><b>Filter box</b> — matches constraint type, label and entity names, so <code>Line 3</code> finds everything touching Line 3.</li>
+                    <li><b>Show u/c</b> — runs Fusion's Show Underconstrained; results arrive as clickable chips.</li>
+                    <li><b>Section header</b> — the chevron collapses it, the checkbox selects everything in it.</li>
+                </ul>
+
+                <h4>Sizing the panel</h4>
+                <ul>
+                    <li><b>Drag a grip strip</b> — the one under <i>Selected:</i> and the one above <i>Properties of selected:</i> resize those panes. <b>Double-click</b> either one to reset it.</li>
+                    <li><b>⇕ button</b> — cycles the docked height: 50% / 75% / full column. The strip along the very bottom edge sets anything in between.</li>
+                    <li>Sizes and the theme are remembered between sessions.</li>
+                </ul>
+
+                <h4>Showing and hiding</h4>
+                <ul>
+                    <li>The palette <b>follows sketch-edit mode</b> — it hides when you leave a sketch and returns on the next one.</li>
+                    <li>Close it with <b>✕</b> to stop it reappearing until you click <b>Constraint Lens</b> in the Sketch toolbar again.</li>
+                </ul>
+            </div>
+        </div>
     </div>
 
     <script src="app.js"></script>

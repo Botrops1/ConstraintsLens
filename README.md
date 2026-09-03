@@ -81,10 +81,13 @@ One toggle button sits on the right end of the name bar:
 |---|---|
 | **☀ / 🌙** (theme toggle) | Switches between dark (default) and light theme. Preference is saved in `localStorage` and restored when the palette is reopened. |
 | **⇕ 50% / 75% / Full** (height cycle) | Cycles the docked height between half, three-quarters and the full dock column. The choice is saved in `localStorage` and re-applied the next time the palette is docked. |
+| **?** (tips) | Opens a cheat sheet of everything the palette can do, in the palette itself — most of it is an unlabelled click target. Dismiss with **Esc**, the **✕**, or by clicking outside the sheet. |
 
 > **Docking** is handled by Fusion itself. Drag the palette title bar to any edge of the Fusion window to snap-dock it (right / left / bottom / top), or drop it anywhere to float. Fusion remembers the position across sessions.
 >
 > **Height when docked** is handled by ConstraintLens, because Fusion does not give a docked custom palette a bottom drag handle of its own. Use the **⇕** button for the three presets, or drag the grip strip along the very bottom edge of the panel for any height in between. Width, and both dimensions while floating, are Fusion's own drag handles as usual.
+>
+> **The two panes inside the palette resize too.** A grip strip sits under the **Selected:** chip row and above the **Properties of selected:** footer — drag either one to give that pane more room, and **double-click it to reset** to the default. Both sizes are saved in `localStorage` and restored on the next launch. Neither pane can take more than 60% of the palette, so the constraint list always keeps its share.
 
 ### Toolbar (buttons row)
 
@@ -147,6 +150,8 @@ The filter is also set **automatically** when you click a single entity on the c
 ### Properties of selected footer
 
 A footer at the bottom of the palette shows the name and key measured properties of the currently selected entity — useful when the palette is docked over Fusion's own bottom-right status corner. Updates immediately on every selection change; hides itself when nothing is selected.
+
+**Drag the grip strip directly above it to make it taller** when several entities are selected, and **double-click that strip to reset** it to the default height. The size is remembered between sessions.
 
 | Entity type | Properties shown |
 |---|---|

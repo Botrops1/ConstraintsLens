@@ -19,6 +19,11 @@
     --badge-implicit-bg: #4a3a1c;
     --badge-implicit-color: #e0b870;
     --badge-error-bg: #4a2c2c;
+    /* Drag-handle bars (#resize-grip, .pane-divider). Deliberately NOT
+       --border: a hairline weight reads as decoration, and users reported
+       not finding the strips without hovering. */
+    --grip: #8f8f8f;
+    --grip-bg: #3b3b3b;
 }
 
 :root[data-theme="light"] {
@@ -40,6 +45,8 @@
     --badge-implicit-bg: #f5e8c0;
     --badge-implicit-color: #7a5000;
     --badge-error-bg: #fde0de;
+    --grip: #6e6e6e;
+    --grip-bg: #d6d6d6;
 }
 
 * {
@@ -531,6 +538,89 @@ main::-webkit-scrollbar-thumb:hover { background: var(--fg-muted); }
     vertical-align: middle;
 }
 
+/* --- Help sheet (? button on the name bar) --------------------------- */
+/* Feature discovery: most of what the palette does is a click target with no
+   label on it (row body vs. row icon, chip, pencil, grip strip). The sheet is
+   static markup in index.html — it describes the UI, so there is nothing to
+   template. Overlays the whole palette rather than pushing layout, because at
+   420 px wide there is nowhere to put it inline. */
+
+#help-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 20;
+    display: flex;
+    /* Bottom-aligned, and the sheet is capped short of full height, so a strip
+       of backdrop always sits over the name bar. Clicking the ? button again
+       therefore lands on the backdrop and closes the sheet, which is what the
+       button invites — the sheet itself never covers it. */
+    align-items: flex-end;
+    justify-content: center;
+    padding: 8px;
+    background: rgba(0, 0, 0, 0.45);
+}
+
+#help-sheet {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    max-height: calc(100% - 22px);
+    background: var(--bg-elev);
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    overflow: hidden;
+}
+
+#help-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 6px;
+    padding: 6px 8px;
+    background: var(--bg);
+    border-bottom: 1px solid var(--border);
+    font-size: 12px;
+}
+
+#help-body {
+    padding: 4px 10px 10px;
+    overflow-y: auto;
+    font-size: 11px;
+    line-height: 1.45;
+    scrollbar-width: thin;
+    scrollbar-color: var(--border) transparent;
+}
+
+#help-body::-webkit-scrollbar { width: 4px; }
+#help-body::-webkit-scrollbar-track { background: transparent; }
+#help-body::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+#help-body::-webkit-scrollbar-thumb:hover { background: var(--fg-muted); }
+
+#help-body h4 {
+    margin: 10px 0 3px;
+    font-size: 10px;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    color: var(--accent);
+}
+
+#help-body ul {
+    margin: 0;
+    padding-left: 16px;
+}
+
+#help-body li { margin-bottom: 3px; }
+#help-body b { color: var(--fg); font-weight: 600; }
+#help-body i { color: var(--fg-muted); font-style: normal; }
+
+#help-body code {
+    padding: 0 3px;
+    background: var(--chip-bg);
+    border: 1px solid var(--chip-border);
+    border-radius: 2px;
+    font-family: Consolas, "Courier New", monospace;
+}
+
 /* --- Pane dividers (issue #12) --------------------------------------- */
 /* The "Selected:" chip strip and the "Properties of selected:" footer are
    both capped and scrollable, and the v1.6.0 density pass cut those caps to
@@ -542,11 +632,13 @@ main::-webkit-scrollbar-thumb:hover { background: var(--fg-muted); }
 
 .pane-divider {
     flex-shrink: 0;
-    height: 7px;
+    height: 9px;
     display: flex;
     align-items: center;
     justify-content: center;
-    background: var(--bg-elev);
+    background: var(--grip-bg);
+    border-top: 1px solid var(--border);
+    border-bottom: 1px solid var(--border);
     cursor: ns-resize;
     user-select: none;
     touch-action: none;
@@ -554,12 +646,13 @@ main::-webkit-scrollbar-thumb:hover { background: var(--fg-muted); }
 
 .pane-divider::before {
     content: "";
-    width: 28px;
-    height: 2px;
-    border-radius: 1px;
-    background: var(--border);
+    width: 40px;
+    height: 3px;
+    border-radius: 2px;
+    background: var(--grip);
 }
 
+.pane-divider:hover { background: var(--bg-row-hover); }
 .pane-divider:hover::before,
 .pane-divider.dragging::before { background: var(--accent); }
 
@@ -577,7 +670,7 @@ main::-webkit-scrollbar-thumb:hover { background: var(--fg-muted); }
     align-items: center;
     justify-content: center;
     border-top: 1px solid var(--border);
-    background: var(--bg);
+    background: var(--grip-bg);
     cursor: ns-resize;
     user-select: none;
     touch-action: none;
@@ -585,10 +678,10 @@ main::-webkit-scrollbar-thumb:hover { background: var(--fg-muted); }
 
 #resize-grip::before {
     content: "";
-    width: 34px;
+    width: 40px;
     height: 3px;
     border-radius: 2px;
-    background: var(--border);
+    background: var(--grip);
 }
 
 #resize-grip:hover::before { background: var(--accent); }

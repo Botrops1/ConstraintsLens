@@ -164,6 +164,9 @@
         selectionFooter: document.getElementById("selection-footer"),
         footerSection: document.getElementById("footer-section"),
         footerDivider: document.getElementById("footer-divider"),
+        helpToggle: document.getElementById("help-toggle"),
+        helpOverlay: document.getElementById("help-overlay"),
+        helpClose: document.getElementById("help-close"),
         selectedDivider: document.getElementById("selected-divider"),
         heightCycle: document.getElementById("height-cycle"),
         resizeGrip: document.getElementById("resize-grip"),
@@ -1018,6 +1021,37 @@
 
         els.resizeGrip.addEventListener("pointerup", finish);
         els.resizeGrip.addEventListener("pointercancel", finish);
+    })();
+
+    // --- Help sheet -----------------------------------------------------
+    //
+    // Most of the palette's behaviour is an unlabelled click target — row body
+    // vs. row icon, chip, pencil, grip strip — so it is only discoverable by
+    // accident or by reading the README. The ? button lists it in place.
+
+    (function () {
+        // Guard a partially-copied deploy, as the pane dividers below do.
+        if (!els.helpToggle || !els.helpOverlay) return;
+
+        function setHelpOpen(open) {
+            els.helpOverlay.className = open ? "" : "hidden";
+        }
+
+        els.helpToggle.addEventListener("click", () => {
+            setHelpOpen(els.helpOverlay.className === "hidden");
+        });
+        if (els.helpClose) els.helpClose.addEventListener("click", () => setHelpOpen(false));
+
+        // Click the backdrop — but not the sheet itself — to dismiss.
+        els.helpOverlay.addEventListener("click", (e) => {
+            if (e.target === els.helpOverlay) setHelpOpen(false);
+        });
+
+        document.addEventListener("keydown", (e) => {
+            if (e.key === "Escape" && els.helpOverlay.className !== "hidden") {
+                setHelpOpen(false);
+            }
+        });
     })();
 
     // --- Resizable "Selected:" / "Properties of selected:" panes (#12) ---
