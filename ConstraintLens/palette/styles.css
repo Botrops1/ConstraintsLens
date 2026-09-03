@@ -500,7 +500,9 @@ main::-webkit-scrollbar-thumb:hover { background: var(--fg-muted); }
     flex-shrink: 0;
     /* Item #25: cap chip strip, then scroll. Lowered from 68 px (3 rows) to
        ~2 rows — with the footer below it, the two panes were taking 144 px of
-       a 541 px dock column whenever anything was selected. */
+       a 541 px dock column whenever anything was selected. Default only:
+       app.js overwrites max-height inline from the remembered
+       #selected-divider drag (issue #12). */
     max-height: 46px;
     overflow-y: auto;
     scrollbar-width: thin;
@@ -528,6 +530,38 @@ main::-webkit-scrollbar-thumb:hover { background: var(--fg-muted); }
     border-radius: 3px;
     vertical-align: middle;
 }
+
+/* --- Pane dividers (issue #12) --------------------------------------- */
+/* The "Selected:" chip strip and the "Properties of selected:" footer are
+   both capped and scrollable, and the v1.6.0 density pass cut those caps to
+   about two rows each. Issue #12: with several entities selected, 52 px is
+   not enough to read the properties. These strips let the user set either
+   cap by dragging. Unlike #resize-grip below they resize a div rather than
+   the palette, so the height applies live per pointermove — no Fusion round
+   trip is involved — and only the persist happens on release. */
+
+.pane-divider {
+    flex-shrink: 0;
+    height: 7px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--bg-elev);
+    cursor: ns-resize;
+    user-select: none;
+    touch-action: none;
+}
+
+.pane-divider::before {
+    content: "";
+    width: 28px;
+    height: 2px;
+    border-radius: 1px;
+    background: var(--border);
+}
+
+.pane-divider:hover::before,
+.pane-divider.dragging::before { background: var(--accent); }
 
 /* --- Docked height grip (v1.6.0) ------------------------------------ */
 /* Last child of the body flex column, below #footer-section. Fusion gives a
@@ -572,10 +606,13 @@ main::-webkit-scrollbar-thumb:hover { background: var(--fg-muted); }
 .hidden { display: none !important; }
 
 /* Item #28: cap "Properties of selected", then scroll. Lowered from 76 px
-   (3 rows) to ~2 rows, same reasoning as #entity-readout above. */
+   (3 rows) to ~2 rows in the v1.6.0 density pass, then raised to 3 rows again
+   for issue #12 — two selected entities alone produce three rows. The value
+   here is only the default: app.js overwrites max-height inline from the
+   remembered #footer-divider drag. */
 #footer-section {
     flex-shrink: 0;
-    max-height: 52px;
+    max-height: 72px;
     overflow-y: auto;
     scrollbar-width: thin;
     scrollbar-color: var(--border) transparent;
