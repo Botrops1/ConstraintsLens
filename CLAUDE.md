@@ -10,12 +10,13 @@ Also watch the double-click-to-edit-sketch report — it was traced to the 500 m
 **Blocked by:** Nothing.
 
 ### Outstanding manual steps
-**No GitHub Release has been published since v1.6.1.** `main` and the manifest now say 1.6.5, so one release covers v1.6.2 through v1.6.5 — nothing downloadable yet carries the #11, #12, help-sheet or v1.6.5 work. RELEASE_NOTES.md now has sections for all four, written to be pasted into the release body. Remaining:
+**v1.6.4 was released 2026-09-03** (it carries #11, #12 and the help sheet), so the v1.6.5 release body is the **v1.6.5 section of RELEASE_NOTES.md alone** — not a roll-up. The changelog is one section per version; take the section, nothing more. Remaining:
 1. ~~PC-test v1.6.5~~ — **done 2026-09-04, all five checks passed.**
-2. `git tag -a v1.6.5 -m "Constraint Lens v1.6.5" && git push origin v1.6.5`, then draft the release and attach a zip named `ConstraintLens-v1.6.5.zip` (asset convention from v1.6.1: top-level `ConstraintLens/` folder, tracked files only, ~55 KB).
-3. Reddit reply about the install path (`Utilities`, not `Tools`).
-4. Reddit announcement of v1.6.5 — **after** the release is live, or the download link 404s.
-5. Close #11 once the original reporter confirms on real multi-monitor hardware.
+2. ~~Tag v1.6.5~~ — **done**, `v1.6.5` is on the remote at `9633668`.
+3. Publish the release: title `Constraint Lens v1.6.5`, body = the v1.6.5 section of RELEASE_NOTES.md, asset `ConstraintLens-v1.6.5.zip`. **Build the asset with `git archive --format=zip -9 -o ConstraintLens-v1.6.5.zip v1.6.5 ConstraintLens`** — from the tag, never the worktree, so the download cannot drift from what the tag says. That yields 23 entries, one top-level `ConstraintLens/` folder, no `__pycache__` or tests, ~60 KB.
+4. Reddit reply about the install path (`Utilities`, not `Tools`).
+5. Reddit announcement of v1.6.5 — **after** the release is live, or the download link 404s.
+6. Close #11 once the original reporter confirms on real multi-monitor hardware.
 
 ### v1.6.5 PC test result (2026-09-04, all five passed)
 1. Palette populates on sketch entry — **yes**. 2. Selection footer fills in — **yes**. 4. Stop/re-run does not auto-open the palette until the button is clicked — **yes**. 5. Area/volume in a non-mm document — **yes**.
