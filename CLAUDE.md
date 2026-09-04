@@ -2,22 +2,27 @@
 
 ## Current Status
 
-**Working on:** Maintenance / community issues. v1.6.0–v1.6.5 merged to `main`; issues #8/#9/#10/#12 closed. v1.6.4 (issue #11 — palette opens docked right) is **PC-verified 2026-09-03**: docks right on a fresh start, a hand-moved palette survives sketch exit/entry, and the ⇕ presets and grip still work from a palette that starts docked.
+**Working on:** Maintenance / community issues. v1.6.0–v1.6.5 merged to `main`; issues #8/#9/#10/#12 closed. **v1.6.5 is PC-verified 2026-09-04** — all five checks on the list below passed (see "v1.6.5 PC test result"). v1.6.4 (issue #11 — palette opens docked right) is **PC-verified 2026-09-03**: docks right on a fresh start, a hand-moved palette survives sketch exit/entry, and the ⇕ presets and grip still work from a palette that starts docked.
 **Version:** 1.6.5 (manifest + commit must always match).
-**Next step:** v1.6.5 is a refactor/perf/UX pass verified headlessly only — **it has not been run in Fusion**. See "What v1.6.5 needs from a PC test" below before releasing. Then #11 stays **open** until the original reporter confirms on an actual multi-monitor setup — the maintainer's machine has one monitor and cannot reproduce the bug, so local verification proves the palette docks, not that the off-screen case is cured.
+**Next step:** publish the release — v1.6.5 is now PC-verified, so nothing blocks it but the manual tag-and-upload (see "Outstanding manual steps"). #11 stays **open** until the original reporter confirms on an actual multi-monitor setup — the maintainer's machine has one monitor and cannot reproduce the bug, so local verification proves the palette docks, not that the off-screen case is cured.
 Also watch the double-click-to-edit-sketch report — it was traced to the 500 ms poll tick colliding with Windows' double-click threshold, gated to sketch-edit mode only, and is no longer reproducible; timing instrumentation found no other per-click stall (slowest event in the add-in is a 47 ms sketch activation, palette pushes are sub-millisecond). **If it recurs, suspect `_start_sketch_poll` first.**
 **Convention:** Every commit that bumps the version string must also update `ConstraintLens/ConstraintLens.manifest` `"version"` field so Fusion shows the correct version.
 **Blocked by:** Nothing.
 
 ### Outstanding manual steps
 **No GitHub Release has been published since v1.6.1.** `main` and the manifest now say 1.6.5, so one release covers v1.6.2 through v1.6.5 — nothing downloadable yet carries the #11, #12, help-sheet or v1.6.5 work. RELEASE_NOTES.md now has sections for all four, written to be pasted into the release body. Remaining:
-1. PC-test v1.6.5 (see below) — it has never been run in Fusion.
+1. ~~PC-test v1.6.5~~ — **done 2026-09-04, all five checks passed.**
 2. `git tag -a v1.6.5 -m "Constraint Lens v1.6.5" && git push origin v1.6.5`, then draft the release and attach a zip named `ConstraintLens-v1.6.5.zip` (asset convention from v1.6.1: top-level `ConstraintLens/` folder, tracked files only, ~55 KB).
 3. Reddit reply about the install path (`Utilities`, not `Tools`).
 4. Reddit announcement of v1.6.5 — **after** the release is live, or the download link 404s.
 5. Close #11 once the original reporter confirms on real multi-monitor hardware.
 
-### What v1.6.5 needs from a PC test
+### v1.6.5 PC test result (2026-09-04, all five passed)
+1. Palette populates on sketch entry — **yes**. 2. Selection footer fills in — **yes**. 4. Stop/re-run does not auto-open the palette until the button is clicked — **yes**. 5. Area/volume in a non-mm document — **yes**.
+3. **Labeler cache invalidation — passed, and the reasoning is worth keeping.** The tester deleted Line 3, drew a replacement, and reported "Line 4 survived, the new line became Line 5" — which reads like a stale labeler but is the opposite. A stale `EntityLabeler` holds a fixed token→label map built before the new line existed, so the new line's token would not be in it and `label_for()` would fall back to `entity.objectType.split("::")[-1]` — the row would read **`SketchLine`**, not `Line 5`. Getting a numbered label at all proves the map was rebuilt with that entity in it. **The fallback string is the tell for this whole class of bug; check for it before suspecting the cache.**
+   - The renumbering itself is by design and worth remembering: labels are positional (`f"{name} {i + 1}"` over `sketchLines`), so a name is a **slot, not an identity**. Delete a line and every later line shifts down one. A chip reading "Line 4" before and after a deletion can be two different entities. Fusion's own UI numbers the same way, so this matches user expectation, but it means label text must never be used to identify an entity across an edit — that is what `entityToken` is for, and the code already routes selection through tokens.
+
+### What v1.6.5 needed from a PC test (all five now passed — kept for the reasoning)
 Everything in it was verified headlessly (`tests/headless/`, 34 unit tests + 23 browser checks) and nothing in it was run in Fusion. The headless suites cover the logic; what they cannot reach is the API's actual behaviour. Check in this order — the first two are the ones that could break the add-in outright:
 1. **The palette still populates on sketch entry.** That exercises the rewritten single-pass scan and the labeler cache together. Compare a few row labels and entity chips against v1.6.4 — the payload is meant to be byte-identical.
 2. **The selection footer still fills in** when you click a line, a circle, an arc, a point, a profile and a dimension. This is the labeler-cache path and the reworked area/volume formatting.
