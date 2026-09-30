@@ -5,7 +5,7 @@ import unittest
 import _bootstrap  # noqa: F401
 
 import fakes
-from lib import dispatch, labels, scanner
+from ConstraintLens.lib import dispatch, labels, scanner
 
 
 def _linear(expression, value, unit="mm", entities=None):

@@ -219,6 +219,7 @@ tests/
 ```
 
 ### Key conventions
+- **Imports:** relative within the add-in (`from .lib import …`); nothing touches `sys.path`. Fusion loads the add-in folder as a package and runs every add-in in one interpreter, so an absolute `from lib import …` picks up whichever add-in's `lib` loaded first — this happened for real with a second add-in that also has a `lib` package. `tests/headless/test_entry.py` guards it.
 - **Collections:** `SketchCurveVector` (from `.parentCurves`, `.childCurves`, `.curves`) uses `len()` + iteration, not `.count`. `ObjectCollection` uses `.count` + `.item(i)`.
 - **Event handlers:** Always appended to `events._handlers` list (M-7). Never instantiate a handler without pinning it.
 - **Palette sends:** Always gated on `palette.isVisible` (M-8 guard in `messaging.send()`).

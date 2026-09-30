@@ -5,7 +5,7 @@ import unittest
 import _bootstrap  # noqa: F401
 
 import fakes
-from lib import lifecycle
+from ConstraintLens.lib import lifecycle
 
 
 class DerivedUnitFormattingTest(unittest.TestCase):
