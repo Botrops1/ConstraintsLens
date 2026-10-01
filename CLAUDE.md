@@ -2,20 +2,20 @@
 
 ## Current Status
 
-**Working on:** Maintenance / community issues. v1.6.0–v1.6.5 merged to `main`; issues #8/#9/#10/#12 closed. **v1.6.5 is PC-verified 2026-09-04** — all five checks on the list below passed (see "v1.6.5 PC test result"). v1.6.4 (issue #11 — palette opens docked right) is **PC-verified 2026-09-03**: docks right on a fresh start, a hand-moved palette survives sketch exit/entry, and the ⇕ presets and grip still work from a palette that starts docked.
-**Version:** 1.6.5 (manifest + commit must always match).
-**Next step:** publish the release — v1.6.5 is now PC-verified, so nothing blocks it but the manual tag-and-upload (see "Outstanding manual steps"). #11 stays **open** until the original reporter confirms on an actual multi-monitor setup — the maintainer's machine has one monitor and cannot reproduce the bug, so local verification proves the palette docks, not that the off-screen case is cured.
+**Working on:** Maintenance / community issues. v1.6.0–v1.6.6 merged to `main`; issues #8/#9/#10/#12 closed. **v1.6.5 released 2026-09-04.** **v1.6.6** is community PR #13 (relative imports, by @craigulliott), PC-tested by the maintainer before merging 2026-10-01; release not yet published. **v1.6.5 is PC-verified 2026-09-04** — all five checks on the list below passed (see "v1.6.5 PC test result"). v1.6.4 (issue #11 — palette opens docked right) is **PC-verified 2026-09-03**: docks right on a fresh start, a hand-moved palette survives sketch exit/entry, and the ⇕ presets and grip still work from a palette that starts docked.
+**Version:** 1.6.6 (manifest + commit must always match).
+**Next step:** tag and publish v1.6.6 (see "Outstanding manual steps"). #11 stays **open** until the original reporter confirms on an actual multi-monitor setup — the maintainer's machine has one monitor and cannot reproduce the bug, so local verification proves the palette docks, not that the off-screen case is cured.
 Also watch the double-click-to-edit-sketch report — it was traced to the 500 ms poll tick colliding with Windows' double-click threshold, gated to sketch-edit mode only, and is no longer reproducible; timing instrumentation found no other per-click stall (slowest event in the add-in is a 47 ms sketch activation, palette pushes are sub-millisecond). **If it recurs, suspect `_start_sketch_poll` first.**
 **Convention:** Every commit that bumps the version string must also update `ConstraintLens/ConstraintLens.manifest` `"version"` field so Fusion shows the correct version.
 **Blocked by:** Nothing.
 
 ### Outstanding manual steps
-**v1.6.4 was released 2026-09-03** (it carries #11, #12 and the help sheet), so the v1.6.5 release body is the **v1.6.5 section of RELEASE_NOTES.md alone** — not a roll-up. The changelog is one section per version; take the section, nothing more. Remaining:
-1. ~~PC-test v1.6.5~~ — **done 2026-09-04, all five checks passed.**
-2. ~~Tag v1.6.5~~ — **done**, `v1.6.5` is on the remote at `9633668`.
-3. Publish the release: title `Constraint Lens v1.6.5`, body = the v1.6.5 section of RELEASE_NOTES.md, asset `ConstraintLens-v1.6.5.zip`. **Build the asset with `git archive --format=zip -9 -o ConstraintLens-v1.6.5.zip v1.6.5 ConstraintLens`** — from the tag, never the worktree, so the download cannot drift from what the tag says. That yields 23 entries, one top-level `ConstraintLens/` folder, no `__pycache__` or tests, ~60 KB.
-4. Reddit reply about the install path (`Utilities`, not `Tools`).
-5. Reddit announcement of v1.6.5 — **after** the release is live, or the download link 404s.
+**v1.6.5 was released 2026-09-04**, so the v1.6.6 release body is the **v1.6.6 section of RELEASE_NOTES.md alone** — not a roll-up. The changelog is one section per version; take the section, nothing more. Remaining:
+1. ~~PC-test v1.6.6~~ — **done 2026-10-01** by the maintainer, on the PR head before merging.
+2. Tag v1.6.6 on the version-bump commit (`git tag v1.6.6 <sha> && git push origin v1.6.6` — from a PC; tag pushes fail from cloud sessions).
+3. Publish the release: title `Constraint Lens v1.6.6`, body = the v1.6.6 section of RELEASE_NOTES.md, asset `ConstraintLens-v1.6.6.zip`. **Build the asset with `git archive --format=zip -9 -o ConstraintLens-v1.6.6.zip v1.6.6 ConstraintLens`** — from the tag, never the worktree, so the download cannot drift from what the tag says. That yields 23 entries, one top-level `ConstraintLens/` folder, no `__pycache__` or tests, ~60 KB.
+4. Reddit reply about the install path (`Utilities`, not `Tools`) — if not already done.
+5. Reddit announcement of v1.6.5 — if not already done.
 6. Close #11 once the original reporter confirms on real multi-monitor hardware.
 
 ### v1.6.5 PC test result (2026-09-04, all five passed)
@@ -37,7 +37,7 @@ Everything in it was verified headlessly (`tests/headless/`, 34 unit tests + 23 
 Both halves of the add-in now have automated coverage that needs no Fusion, and CI runs both on every push. **Run them before touching anything and after every change.**
 
 ```sh
-cd tests/headless && python3 -m unittest discover      # 34 tests, no dependencies
+cd tests/headless && python3 -m unittest discover      # 35 tests, no dependencies
 python3 tests/headless/palette_ui_check.py             # 23 checks, needs playwright
 ```
 
@@ -54,7 +54,8 @@ python3 tests/headless/palette_ui_check.py             # 23 checks, needs playwr
 - **Docking right works and is visible**: `left=1495 w=420 h=690 dock=4`.
 - **RESOLVED: Fusion does NOT restore a custom palette's docking state across sessions.** The probe's throwaway returned `itemById -> False` after a restart and came back Floating at (0,0); the maintainer independently confirms having to re-dock ConstraintLens on every launch. **The README claimed the opposite** (from v1.2.1 PC testing) and has been corrected. Consequences: the palette returns to (0,0) every session, which is why the reporter hit the bug repeatedly rather than once; and the fix docks on **every** creation, not first-run-only, with no settings file needed — there is no remembered choice to preserve.
 
-### Recent fixes (v1.0.1–v1.6.5)
+### Recent fixes (v1.0.1–v1.6.6)
+- v1.6.6: **PR #13 (@craigulliott) — relative imports, so add-ins can't swap code.** `ConstraintLens.py` put its own folder on `sys.path` and did `from lib import lifecycle`. Fusion runs every add-in in one interpreter, so the module name `lib` is shared: whichever add-in imported it first won, and the other ran its code. It happened for real — his Fusion Keypad add-in used the same pattern, picked up our `lib.lifecycle`, and our `start()` copied palette icons into his folder. Now `from .lib import lifecycle`, as Autodesk's template does; `lib/` already imported relatively. Tests import `ConstraintLens.lib…` (`_bootstrap.py` puts the repo root on the path, not `ConstraintLens/`), and `test_entry.py` fails against the old entry point. PC-tested by the maintainer on the PR head before merging. **Never reintroduce a `sys.path` insert or an absolute `lib` import.**
 - v1.6.5: **Per-click and per-scan cost cut; the auto-filter now lets go.** Headless-verified only — see the PC test list above.
   - **The sketch was described twice per payload.** `_scan_constraints` and `_scan_patterns` each walked all of `geometricConstraints` and ran every descriptor's builder, *then* filtered — so every builder ran twice and half the results were discarded, and `OffsetConstraint` (shown in neither section) was built twice and discarded twice. `_scan_constraint_rows()` decides the section from the kind name *before* building. Row order and contents are unchanged; `test_scanner` asserts the accessor read count is exactly 1.
   - **`EntityLabeler` was rebuilt on every canvas click.** Construction reads `entityToken` for every line/point/circle/arc/ellipse/spline — the expensive read — and it happened in `build_payload`, again in `_build_selection_info`, and again on every `activeSelectionChanged`. `labels.labeler_for()` caches it behind a 9-property fingerprint (sketch name, component name, 7 collection counts) that never touches `entityToken`. **Deleting one entity and adding another inside a single command leaves the counts equal**, so that one case can serve a stale labeler — harmless, and the `commandTerminated` republish immediately afterwards refreshes it.
