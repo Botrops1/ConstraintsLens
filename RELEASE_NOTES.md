@@ -2,7 +2,34 @@
 
 ---
 
-## v1.6.5 (current)
+## v1.6.6 (current)
+
+**ConstraintLens no longer trips over other add-ins that name their code the same way.**
+
+Fusion runs every add-in in one shared Python interpreter. ConstraintLens
+loaded its own code under the plain name `lib`, and any other add-in doing the
+same competed for that name: whichever loaded first won, and the other ran the
+winner's code. With a second add-in of that kind installed, one of the two
+could start the other's logic — in the reported case ConstraintLens ran inside
+the other add-in's folder and copied its palette icons there.
+
+The add-in now imports its code relative to its own folder, the way Autodesk's
+add-in template does, so its modules cannot collide with another add-in's, in
+either direction. Nothing visible changes.
+
+Contributed by [@craigulliott](https://github.com/craigulliott), who found it
+while building [Fusion Keypad](https://github.com/craigulliott/Fusion-LogiMX)
+(Botrops1/ConstraintsLens#13).
+
+### For contributors
+
+The headless tests now import the add-in as `ConstraintLens.lib…`, the same
+way Fusion loads it, and `tests/headless/test_entry.py` checks the entry point
+loads its own code when another add-in's `lib` is already imported.
+
+---
+
+## v1.6.5
 
 **Faster on every click, and the filter box no longer holds on after you let go.**
 
