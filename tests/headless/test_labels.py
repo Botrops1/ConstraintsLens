@@ -5,7 +5,7 @@ import unittest
 import _bootstrap  # noqa: F401
 
 import fakes
-from lib import labels
+from ConstraintLens.lib import labels
 
 
 class LabelerTest(unittest.TestCase):

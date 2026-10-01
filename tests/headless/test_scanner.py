@@ -5,7 +5,7 @@ import unittest
 import _bootstrap  # noqa: F401
 
 import fakes
-from lib import labels, scanner
+from ConstraintLens.lib import labels, scanner
 
 
 def _line(token):
