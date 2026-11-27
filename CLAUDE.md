@@ -13,7 +13,7 @@ Also watch the double-click-to-edit-sketch report — it was traced to the 500 m
 **v1.6.5 was released 2026-09-04**, so the v1.6.6 release body is the **v1.6.6 section of RELEASE_NOTES.md alone** — not a roll-up. The changelog is one section per version; take the section, nothing more. Remaining:
 1. ~~PC-test v1.6.6~~ — **done 2026-10-01** by the maintainer, on the PR head before merging.
 2. Tag v1.6.6 on the version-bump commit (`git tag v1.6.6 <sha> && git push origin v1.6.6` — from a PC; tag pushes fail from cloud sessions).
-3. Publish the release: title `Constraint Lens v1.6.6`, body = the v1.6.6 section of RELEASE_NOTES.md, asset `ConstraintLens-v1.6.6.zip`. **Build the asset with `git archive --format=zip -9 -o ConstraintLens-v1.6.6.zip v1.6.6 ConstraintLens`** — from the tag, never the worktree, so the download cannot drift from what the tag says. That yields 23 entries, one top-level `ConstraintLens/` folder, no `__pycache__` or tests, ~60 KB.
+3. Publish the release: title `Constraint Lens v1.6.6`, body = the v1.6.6 section of RELEASE_NOTES.md, asset `ConstraintLens-v1.6.6.zip`. **Build the asset with `python scripts/package_release.py v1.6.6`** — from the tag, never the worktree, so the download cannot drift from what the tag says. That yields 23 entries, one top-level `ConstraintLens/` folder, no `__pycache__` or tests, ~60 KB.
 4. Reddit reply about the install path (`Utilities`, not `Tools`) — if not already done.
 5. Reddit announcement of v1.6.5 — if not already done.
 6. Close #11 once the original reporter confirms on real multi-monitor hardware.
