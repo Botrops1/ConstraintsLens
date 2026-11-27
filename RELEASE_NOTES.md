@@ -2,7 +2,25 @@
 
 ---
 
-## v1.6.6 (current)
+## v1.6.7 (current)
+
+**Packaging fix — the v1.6.6 download reported itself as 1.6.5.**
+
+The `v1.6.6` tag was placed one commit before the version bump, so the v1.6.6
+ZIP shipped a manifest still reading `1.6.5`. Fusion therefore displayed the
+wrong version, and anything comparing versions (such as the Fusion Community
+Store) could not tell the build apart from the previous release.
+
+The add-in's code is identical to v1.6.6; only the manifest version changes.
+Release ZIPs are now built with `scripts/package_release.py`, which refuses to
+package a tag whose manifest version does not match the tag.
+
+Thanks to [@DiegoV71](https://github.com/DiegoV71) for spotting the mismatch
+and contributing the packaging check (Botrops1/ConstraintsLens#15, #16).
+
+---
+
+## v1.6.6
 
 **ConstraintLens no longer trips over other add-ins that name their code the same way.**
 
